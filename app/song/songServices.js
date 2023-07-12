@@ -3,7 +3,22 @@ const songSchema = require("./songSchema");
 const { createError, createResponse } = require("../../util/util");
 
 const getAllSongs = async (req, res) => {
-  const songs = await songSchema.find({});
+  const songs = await songSchema.find({}).sort({ createdAt: -1 });
+
+  createResponse(res, songs);
+};
+
+const searchSong = async (req, res) => {
+  const search = req.query.search;
+  if (!search) {
+    createError(res, "search query required", 400);
+    return;
+  }
+
+  const regex = new RegExp(search, "ig");
+  const songs = await songSchema.find({
+    $or: [{ title: { $regex: regex } }, { artist: { $regex: regex } }],
+  });
 
   createResponse(res, songs);
 };
@@ -19,6 +34,21 @@ const addNewSong = async (req, res) => {
       }${url ? "" : "url, "} are required`,
       400
     );
+    return;
+  }
+
+  const song = await songSchema.findOne({
+    $or: [
+      {
+        title,
+      },
+      {
+        hash,
+      },
+    ],
+  });
+  if (song) {
+    createError(res, `Similar song already exist: ${song.title}`, 400);
     return;
   }
 
@@ -80,4 +110,10 @@ const deleteSong = async (req, res) => {
   }
 };
 
-module.exports = { getAllSongs, addNewSong, updateSong, deleteSong };
+module.exports = {
+  getAllSongs,
+  addNewSong,
+  updateSong,
+  deleteSong,
+  searchSong,
+};

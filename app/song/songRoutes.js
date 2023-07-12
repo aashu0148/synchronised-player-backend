@@ -5,13 +5,16 @@ const {
   addNewSong,
   updateSong,
   deleteSong,
+  searchSong,
 } = require("./songServices");
+const { authenticateUserMiddleware } = require("../user/userMiddleware");
 
 const router = express.Router();
 
+router.get("/song", searchSong);
 router.get("/song/all", getAllSongs);
-router.post("/song", addNewSong);
-router.put("/song/:sid", updateSong);
-router.delete("/song/:sid", deleteSong);
+router.post("/song", authenticateUserMiddleware, addNewSong);
+router.put("/song/:sid", authenticateUserMiddleware, updateSong);
+router.delete("/song/:sid", authenticateUserMiddleware, deleteSong);
 
 module.exports = router;
