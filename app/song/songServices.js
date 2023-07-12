@@ -26,12 +26,12 @@ const searchSong = async (req, res) => {
 const addNewSong = async (req, res) => {
   const { title, url, hash, artist, fileType, length } = req.body;
 
-  if (!title || !url || !artist || !fileType) {
+  if (!title || !url || !artist || !fileType || !length) {
     createError(
       res,
       `${title ? "" : "title, "}${artist ? "" : "artist, "}${
-        fileType ? "" : "fileType, "
-      }${url ? "" : "url, "} are required`,
+        length ? "" : "length, "
+      }${fileType ? "" : "fileType, "}${url ? "" : "url, "} are required`,
       400
     );
     return;
@@ -57,7 +57,7 @@ const addNewSong = async (req, res) => {
     hash,
     artist,
     fileType,
-    length,
+    length: parseInt(length),
     url,
   });
 

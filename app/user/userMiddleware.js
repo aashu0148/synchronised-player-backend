@@ -11,9 +11,12 @@ const authenticateUserMiddleware = async (req, res, next) => {
     return;
   }
 
-  const user = await userSchema.findOne({
-    token: token,
-  });
+  const user = await userSchema
+    .findOne({
+      token: token,
+    })
+    .select("-token")
+    .lean();
   if (!user) {
     res.status(422).json({
       status: false,
@@ -22,7 +25,7 @@ const authenticateUserMiddleware = async (req, res, next) => {
     return;
   }
 
-  req.user = user;
+  req.user = { ...user, _id: user._id.toString() };
   next();
 };
 

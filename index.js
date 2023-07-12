@@ -32,18 +32,26 @@ const rooms = {
       { name: "name2", email: "email2", _id: "_id2", role: "" },
       { name: "name3", email: "email3", _id: "_id3", role: "" },
     ],
+    currentSong: "songId",
+    lastPlayedAt: "timestamp",
+    paused: true,
+    playedSeconds: 0,
   },
 };
 const updateRoom = (roomId, room) => {
-  if (
-    !rooms[roomId] ||
-    !room.owner ||
-    !Array.isArray(room.users) ||
-    !Array.isArray(room.playlist)
-  )
-    return;
+  if (typeof room !== "object") return null;
 
-  rooms[roomId] = { ...rooms[roomId], ...room };
+  let updatedRoom;
+  if (rooms[roomId]) updatedRoom = { ...rooms[roomId], ...room };
+  else {
+    if (!room.owner || !Array.isArray(room.playlist)) return null;
+
+    updatedRoom = { ...room };
+  }
+
+  rooms[roomId] = updatedRoom;
+
+  return { ...updatedRoom };
 };
 const deleteRoom = (roomId) => {
   if (!rooms[roomId]) return;
@@ -64,7 +72,7 @@ app.use((req, _res, next) => {
 server.listen(5000, () => {
   console.log("Backend is up at port 5000");
 
-  SocketEvents(io, rooms);
+  SocketEvents(io, rooms, updateRoom, deleteRoom);
   mongoose.set("strictQuery", true);
   mongoose
     .connect(process.env.MONGO_URI)

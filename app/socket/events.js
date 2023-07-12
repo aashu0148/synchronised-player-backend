@@ -1,28 +1,97 @@
+const roomSchema = require("../room/roomSchema");
 const { roomUserTypeEnum } = require("../../util/constant");
+const { formatSecondsToMinutesSeconds } = require("../../util/util");
 
-const sendNotificationInRoom = (io, roomId, message) => {
-  io.to(roomId).emit("notification", message);
-};
+const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
+  const sendNotificationInRoom = (roomId, title, desc) => {
+    io.to(roomId).emit("notification", {
+      title: title || "",
+      description: desc || "",
+    });
+  };
 
-const SocketEvents = (io, rooms) => {
+  const sendSocketError = (socket, message) => {
+    socket.emit("error", message);
+  };
+
+  const removeUserFromRooms = (uid, rid, socket) => {
+    let room;
+    if (rid) room = rooms[rid];
+    else {
+      const roomKey = Object.keys(rooms).find((key) =>
+        rooms[key]?.users
+          ? rooms[key].users.some((item) => item._id == uid)
+          : false
+      );
+
+      if (roomKey) rid = roomKey;
+      room = roomKey ? rooms[roomKey] : undefined;
+    }
+
+    if (!room) return null;
+
+    const user = room.users ? room.users.find((item) => item._id == uid) : {};
+    let newUsers = room.users
+      ? room.users.filter((item) => item._id !== uid)
+      : [];
+
+    updateRoom(rid, { users: newUsers });
+
+    if (user && socket) {
+      sendNotificationInRoom(rid, `${user?.name || "undefined"} left the room`);
+      socket.leave(rid);
+    }
+
+    return user;
+  };
+
   io.on("connection", (socket) => {
-    socket.on("join-room", (obj) => {
-      if (!obj.roomId) return;
+    socket.on("join-room", async (obj) => {
+      if (!obj.roomId || !obj.userId) return;
 
-      const { roomId, userId, name, email } = obj;
+      const { roomId, userId, name, email, profileImage } = obj;
 
-      const room = rooms[roomId];
+      const user = {
+        _id: userId,
+        name,
+        email,
+        profileImage,
+        role: roomUserTypeEnum.member,
+      };
+      removeUserFromRooms(userId, null, socket);
+      let room = rooms[roomId] ? { ...rooms[roomId] } : undefined;
+
       if (room) {
-        rooms[roomId].users.push({
-          name,
-          email,
-          _id: userId,
-          role: roomUserTypeEnum.member,
-        });
+        room.users = Array.isArray(room.users) ? [...room.users, user] : [user];
+      } else {
+        room = await roomSchema
+          .findOne({ _id: roomId })
+          .populate("playlist")
+          .populate({
+            path: "owner",
+            select: "-token -createdAt",
+          })
+          .lean();
+
+        if (!room) {
+          sendSocketError(socket, "Room not found in the database");
+          return;
+        }
+
+        room = {
+          ...room,
+          users: [user],
+          currentSong: room.playlist[0] ? room.playlist[0]._id : "",
+          lastPlayedAt: Date.now(),
+          paused: true,
+          secondsPlayed: 0,
+        };
       }
 
+      const updatedRoom = updateRoom(roomId, room);
       socket.join(roomId);
-      sendNotificationInRoom(io, roomId, `${name} joined the room`);
+      socket.emit("joined-room", { ...updatedRoom, _id: roomId });
+      sendNotificationInRoom(roomId, `${name} joined the room`);
     });
 
     socket.on("leave-room", (obj) => {
@@ -30,22 +99,204 @@ const SocketEvents = (io, rooms) => {
 
       const { roomId, userId } = obj;
 
-      const room = rooms[roomId];
-      if (!room) return;
+      removeUserFromRooms(userId, roomId, socket);
+      socket.emit("left-room", { _id: roomId });
+    });
 
-      let users = [...room.users];
-      const userIndex = users.findIndex((item) => item._id == userId);
-      const user = userIndex > -1 ? users[userIndex] : {};
+    socket.on("play-pause", async (obj) => {
+      if (!obj.roomId || !obj.userId) return;
 
-      if (userIndex > -1) users = users.splice(userIndex, 1);
-      rooms[roomId].users = users;
+      const { roomId, userId } = obj;
 
+      let room = rooms[roomId] ? rooms[roomId] : undefined;
+
+      if (!room) {
+        sendSocketError(socket, "Room not found");
+        return;
+      }
+
+      const user = room.users.find((item) => item._id == userId);
+      if (!user) {
+        sendSocketError(socket, `user not found in the room: ${room.name}`);
+        return;
+      }
+
+      const song =
+        room.playlist.find((item) => item._id == room.currentSong) || {};
+      const newPausedValue = room.paused ? false : true;
+      updateRoom(roomId, {
+        paused: newPausedValue,
+      });
+
+      io.to(roomId).emit("play-pause", {
+        paused: newPausedValue,
+      });
       sendNotificationInRoom(
-        io,
         roomId,
-        `${user?.name || "undefined"} left the room`
+        `${newPausedValue ? "paused" : "played"} by ${user.name}`,
+        `${user.name} ${newPausedValue ? "paused" : "played"} the song: ${
+          song?.title
+        }`
       );
-      socket.leave(roomId);
+    });
+
+    socket.on("seek", async (obj) => {
+      if (!obj.roomId || !obj.userId) return;
+
+      const { roomId, userId } = obj;
+      const seekSeconds = parseInt(obj.seekSeconds);
+
+      let room = rooms[roomId] ? rooms[roomId] : undefined;
+
+      if (!room) {
+        sendSocketError(socket, "Room not found");
+        return;
+      }
+      const user = room.users.find((item) => item._id == userId);
+      if (!user) {
+        sendSocketError(socket, `user not found in the room: ${room.name}`);
+        return;
+      }
+      if (isNaN(seekSeconds)) {
+        sendSocketError(socket, `seekSeconds required`);
+        return;
+      }
+
+      const song =
+        room.playlist.find((item) => item._id == room.currentSong) || {};
+
+      if (song.length < seekSeconds) {
+        sendSocketError(
+          socket,
+          `Can not seek to ${seekSeconds}seconds for a ${song.length}second song`
+        );
+        return;
+      }
+
+      updateRoom(roomId, {
+        lastPlayedAt: Date.now(),
+        paused: false,
+        secondsPlayed: seekSeconds,
+      });
+
+      io.to(roomId).emit("seek", {
+        lastPlayedAt: Date.now(),
+        paused: false,
+        secondsPlayed: seekSeconds,
+      });
+      sendNotificationInRoom(
+        roomId,
+        `Seeked to ${formatSecondsToMinutesSeconds(seekSeconds)}`,
+        `${user.name} seeked the song: ${
+          song?.title
+        } to ${formatSecondsToMinutesSeconds(seekSeconds)}`
+      );
+    });
+
+    socket.on("next", async (obj) => {
+      if (!obj.roomId || !obj.userId) return;
+
+      const { roomId, userId, currentSongId } = obj;
+
+      let room = rooms[roomId] ? rooms[roomId] : undefined;
+
+      if (!room) {
+        sendSocketError(socket, "Room not found");
+        return;
+      }
+      if (!currentSongId) {
+        sendSocketError(socket, "currentSongId not found");
+        return;
+      }
+      const user = room.users.find((item) => item._id == userId);
+      if (!user) {
+        sendSocketError(socket, `user not found in the room: ${room.name}`);
+        return;
+      }
+
+      const songIndex = room.playlist.findIndex(
+        (item) => item._id == currentSongId
+      );
+      if (room.playlist[songIndex]?.length < 0) {
+        sendSocketError(socket, `Can not find current song in the playlist`);
+        return;
+      }
+
+      let nextSongIndex =
+        songIndex == room.playlist.length - 1 ? 0 : songIndex + 1;
+      const nextSong = room.playlist[nextSongIndex];
+
+      updateRoom(roomId, {
+        secondsPlayed: 0,
+        lastPlayedAt: Date.now(),
+        paused: false,
+        currentSong: nextSong?._id,
+      });
+
+      io.to(roomId).emit("next", {
+        secondsPlayed: 0,
+        lastPlayedAt: Date.now(),
+        paused: false,
+        currentSong: nextSong?._id,
+      });
+      sendNotificationInRoom(
+        roomId,
+        `Next song played by ${user.name}`,
+        `${user.name} played "${nextSong?.title}" as a next song`
+      );
+    });
+
+    socket.on("prev", async (obj) => {
+      if (!obj.roomId || !obj.userId) return;
+
+      const { roomId, userId, currentSongId } = obj;
+
+      let room = rooms[roomId] ? rooms[roomId] : undefined;
+
+      if (!room) {
+        sendSocketError(socket, "Room not found");
+        return;
+      }
+      if (!currentSongId) {
+        sendSocketError(socket, "currentSongId not found");
+        return;
+      }
+      const user = room.users.find((item) => item._id == userId);
+      if (!user) {
+        sendSocketError(socket, `user not found in the room: ${room.name}`);
+        return;
+      }
+
+      const songIndex = room.playlist.findIndex(
+        (item) => item._id == currentSongId
+      );
+      if (room.playlist[songIndex]?.length < 0) {
+        sendSocketError(socket, `Can not find current song in the playlist`);
+        return;
+      }
+
+      let prevSongIndex =
+        songIndex == 0 ? room.playlist.length - 1 : songIndex - 1;
+      const prevSong = room.playlist[prevSongIndex];
+
+      updateRoom(roomId, {
+        secondsPlayed: 0,
+        lastPlayedAt: Date.now(),
+        paused: false,
+        currentSong: prevSong?._id,
+      });
+
+      io.to(roomId).emit("prev", {
+        secondsPlayed: 0,
+        lastPlayedAt: Date.now(),
+        paused: false,
+        currentSong: prevSong?._id,
+      });
+      sendNotificationInRoom(
+        roomId,
+        `Previous song played by ${user.name}`,
+        `${user.name} played "${prevSong?.title}" as a previous song`
+      );
     });
   });
 };

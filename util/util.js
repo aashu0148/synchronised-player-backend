@@ -18,8 +18,18 @@ const validateEmail = (email) => {
   return /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email);
 };
 
+function formatSecondsToMinutesSeconds(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = parseInt(seconds % 60);
+
+  return `${minutes}:${
+    remainingSeconds < 10 ? "0" + remainingSeconds : remainingSeconds
+  }`;
+}
+
 module.exports = {
   createError,
   createResponse,
   validateEmail,
+  formatSecondsToMinutesSeconds,
 };

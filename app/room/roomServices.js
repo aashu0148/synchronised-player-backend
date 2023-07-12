@@ -1,13 +1,25 @@
 const roomSchema = require("./roomSchema");
 const { createError, createResponse } = require("../../util/util");
 
-const getAllRooms = async (_req, res) => {
-  const rooms = await roomSchema.find({}).populate("playlist").populate({
-    path: "owner",
-    select: "-token -createdAt",
-  });
+const getAllRooms = async (req, res) => {
+  const rooms = await roomSchema
+    .find({})
+    .populate("playlist")
+    .populate({
+      path: "owner",
+      select: "-token -createdAt",
+    })
+    .lean();
 
-  createResponse(res, rooms);
+  const socketRooms = req.rooms;
+
+  createResponse(
+    res,
+    rooms.map((item) => ({
+      ...item,
+      users: socketRooms[item._id]?.users || [],
+    }))
+  );
 };
 
 const createRoom = async (req, res) => {
@@ -52,6 +64,7 @@ const updateRoomToDb = async (req, res) => {
   roomSchema
     .updateOne({ _id: roomId }, updateObj)
     .exec()
+    .lean()
     .then((room) => {
       if (req.updateRoom) req.updateRoom(roomId, room);
 
