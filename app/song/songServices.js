@@ -26,12 +26,14 @@ const searchSong = async (req, res) => {
 const addNewSong = async (req, res) => {
   const { title, url, hash, artist, fileType, length } = req.body;
 
-  if (!title || !url || !artist || !fileType || !length) {
+  if (!title || !url || !artist || !fileType || !length || !hash) {
     createError(
       res,
       `${title ? "" : "title, "}${artist ? "" : "artist, "}${
         length ? "" : "length, "
-      }${fileType ? "" : "fileType, "}${url ? "" : "url, "} are required`,
+      }${fileType ? "" : "fileType, "}${url ? "" : "url, "}${
+        hash ? "" : "hash, "
+      } are required`,
       400
     );
     return;
