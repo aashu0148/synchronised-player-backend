@@ -35,14 +35,14 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
       ? room.users.filter((item) => item._id !== uid)
       : [];
 
-    updateRoom(rid, { users: newUsers });
+    const updatedRoom = updateRoom(rid, { users: newUsers });
 
     if (user && socket) {
       sendNotificationInRoom(rid, `${user?.name || "undefined"} left the room`);
       socket.leave(rid);
     }
 
-    return user;
+    return { user, room: updatedRoom };
   };
 
   io.on("connection", (socket) => {
@@ -92,6 +92,11 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
       socket.join(roomId);
       socket.emit("joined-room", { ...updatedRoom, _id: roomId });
       sendNotificationInRoom(roomId, `${name} joined the room`);
+
+      io.to(roomId).emit("users-change", {
+        users: updatedRoom.users || [],
+        _id: roomId,
+      });
     });
 
     socket.on("leave-room", (obj) => {
@@ -99,8 +104,14 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
 
       const { roomId, userId } = obj;
 
-      removeUserFromRooms(userId, roomId, socket);
+      const updatedRoom = removeUserFromRooms(userId, roomId, socket);
       socket.emit("left-room", { _id: roomId });
+
+      if (updatedRoom)
+        io.to(roomId).emit("users-change", {
+          users: updatedRoom.room?.users || [],
+          _id: roomId,
+        });
     });
 
     socket.on("play-pause", async (obj) => {
