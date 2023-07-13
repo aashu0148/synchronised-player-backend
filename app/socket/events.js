@@ -2,6 +2,19 @@ const roomSchema = require("../room/roomSchema");
 const { roomUserTypeEnum } = require("../../util/constant");
 const { formatSecondsToMinutesSeconds } = require("../../util/util");
 
+const updateRoomPlaylist = async (roomId, songIds) => {
+  if (!roomId) return;
+
+  try {
+    await roomSchema.updateOne(
+      { _id: roomId },
+      { $set: { playlist: songIds } }
+    );
+  } catch (err) {
+    console.log("Error updating playlist via sockets", err);
+  }
+};
+
 const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
   const sendNotificationInRoom = (roomId, title, desc) => {
     io.to(roomId).emit("notification", {
@@ -307,6 +320,165 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
         roomId,
         `Previous song played by ${user.name}`,
         `${user.name} played "${prevSong?.title}" as a previous song`
+      );
+    });
+
+    socket.on("play-song", async (obj) => {
+      if (!obj.roomId || !obj.userId) return;
+
+      const { roomId, userId, songId } = obj;
+
+      let room = rooms[roomId] ? rooms[roomId] : undefined;
+
+      if (!room) {
+        sendSocketError(socket, "Room not found");
+        return;
+      }
+      if (!songId) {
+        sendSocketError(socket, "songId not found");
+        return;
+      }
+      const user = room.users.find((item) => item._id == userId);
+      if (!user) {
+        sendSocketError(socket, `user not found in the room: ${room.name}`);
+        return;
+      }
+
+      const songIndex = room.playlist.findIndex((item) => item._id == songId);
+      if (room.playlist[songIndex]?.length < 0) {
+        sendSocketError(socket, `Can not find song in the playlist`);
+        return;
+      }
+
+      const song = room.playlist[songIndex];
+
+      updateRoom(roomId, {
+        secondsPlayed: 0,
+        lastPlayedAt: Date.now(),
+        paused: false,
+        currentSong: song?._id,
+      });
+
+      io.to(roomId).emit("play-song", {
+        secondsPlayed: 0,
+        lastPlayedAt: Date.now(),
+        paused: false,
+        currentSong: song?._id,
+      });
+      sendNotificationInRoom(
+        roomId,
+        `${song.title}`,
+        `${user.name} played "${song?.title}"`
+      );
+    });
+
+    socket.on("sync", async (obj) => {
+      if (!obj.roomId || !obj.userId) return;
+
+      const { roomId, userId, secondsPlayed } = obj;
+
+      let room = rooms[roomId] ? rooms[roomId] : undefined;
+
+      if (!room) {
+        sendSocketError(socket, "Room not found");
+        return;
+      }
+      if (isNaN(secondsPlayed)) {
+        sendSocketError(socket, "secondsPlayed not found");
+        return;
+      }
+      const user = room.users.find((item) => item._id == userId);
+      if (!user) {
+        sendSocketError(socket, `user not found in the room: ${room.name}`);
+        return;
+      }
+
+      updateRoom(roomId, {
+        secondsPlayed: secondsPlayed,
+      });
+    });
+
+    socket.on("update-playlist", async (obj) => {
+      if (!obj.roomId || !obj.userId) return;
+
+      const { roomId, userId, songIds } = obj;
+
+      let room = rooms[roomId] ? rooms[roomId] : undefined;
+
+      if (!room) {
+        sendSocketError(socket, "Room not found");
+        return;
+      }
+      if (!Array.isArray(songIds)) {
+        sendSocketError(socket, "songIds not found");
+        return;
+      }
+      const user = room.users.find((item) => item._id == userId);
+      if (!user) {
+        sendSocketError(socket, `user not found in the room: ${room.name}`);
+        return;
+      }
+
+      const newPlaylist = songIds
+        .map((id) => room.playlist.find((item) => item._id == id))
+        .filter((item) => item);
+
+      updateRoom(roomId, {
+        playlist: newPlaylist,
+      });
+      updateRoomPlaylist(
+        roomId,
+        newPlaylist.map((item) => item._id)
+      );
+
+      io.to(roomId).emit("update-playlist", {
+        playlist: newPlaylist,
+      });
+      sendNotificationInRoom(
+        roomId,
+        `Playlist updated`,
+        `${user.name} updated the playlist`
+      );
+    });
+
+    socket.on("add-song", async (obj) => {
+      if (!obj.roomId || !obj.userId) return;
+
+      const { roomId, userId, song } = obj;
+
+      let room = rooms[roomId] ? rooms[roomId] : undefined;
+
+      if (!room) {
+        sendSocketError(socket, "Room not found");
+        return;
+      }
+      if (!song?._id) {
+        sendSocketError(socket, "song not found");
+        return;
+      }
+      const user = room.users.find((item) => item._id == userId);
+      if (!user) {
+        sendSocketError(socket, `user not found in the room: ${room.name}`);
+        return;
+      }
+
+      const newPlaylist = [...room.playlist, song];
+
+      updateRoom(roomId, {
+        playlist: newPlaylist,
+      });
+      updateRoomPlaylist(
+        roomId,
+        newPlaylist.map((item) => item._id)
+      );
+
+      io.to(roomId).emit("add-song", {
+        playlist: newPlaylist,
+      });
+      sendNotificationInRoom(
+        roomId,
+        `New song added`,
+        `${user.name} added ${song.title}`
       );
     });
   });
