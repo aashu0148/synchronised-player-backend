@@ -59,6 +59,22 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
   };
 
   io.on("connection", (socket) => {
+    const leaveRoomSocketHandler = (obj) => {
+      if (!obj.roomId || !obj.userId) return;
+
+      const { roomId, userId } = obj;
+
+      const updatedRoom = removeUserFromRooms(userId, roomId, socket);
+      socket.emit("left-room", { _id: roomId });
+
+      if (updatedRoom?.room?.users?.length)
+        io.to(roomId).emit("users-change", {
+          users: updatedRoom.room?.users || [],
+          _id: roomId,
+        });
+      else deleteRoom(roomId);
+    };
+
     socket.on("join-room", async (obj) => {
       if (!obj.roomId || !obj.userId) return;
 
@@ -113,21 +129,7 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
       });
     });
 
-    socket.on("leave-room", (obj) => {
-      if (!obj.roomId || !obj.userId) return;
-
-      const { roomId, userId } = obj;
-
-      const updatedRoom = removeUserFromRooms(userId, roomId, socket);
-      socket.emit("left-room", { _id: roomId });
-
-      if (updatedRoom?.room?.users?.length)
-        io.to(roomId).emit("users-change", {
-          users: updatedRoom.room?.users || [],
-          _id: roomId,
-        });
-      else deleteRoom(roomId);
-    });
+    socket.on("leave-room", leaveRoomSocketHandler);
 
     socket.on("play-pause", async (obj) => {
       if (!obj.roomId || !obj.userId) return;

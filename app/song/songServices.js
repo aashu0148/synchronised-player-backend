@@ -23,6 +23,27 @@ const searchSong = async (req, res) => {
   createResponse(res, songs);
 };
 
+const checkSongAvailability = async (req, res) => {
+  const { title, hash } = req.body;
+
+  const song = await songSchema.findOne({
+    $or: [
+      {
+        title,
+      },
+      {
+        hash,
+      },
+    ],
+  });
+  if (song) {
+    createError(res, `Similar song already exist: ${song.title}`, 400);
+    return;
+  }
+
+  createResponse(res, "No similar song found! Song can be added");
+};
+
 const addNewSong = async (req, res) => {
   const { title, url, hash, artist, fileType, length } = req.body;
 
@@ -118,4 +139,5 @@ module.exports = {
   updateSong,
   deleteSong,
   searchSong,
+  checkSongAvailability,
 };
