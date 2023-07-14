@@ -9,6 +9,7 @@ const getAllRooms = async (req, res) => {
       path: "owner",
       select: "-token -createdAt",
     })
+    .sort({ updatedAt: -1 })
     .lean();
 
   const socketRooms = req.rooms;
