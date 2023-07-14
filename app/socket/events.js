@@ -94,6 +94,7 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
         room = {
           ...room,
           users: [user],
+          chats: [],
           currentSong: room.playlist[0] ? room.playlist[0]._id : "",
           lastPlayedAt: Date.now(),
           paused: true,
@@ -120,11 +121,12 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
       const updatedRoom = removeUserFromRooms(userId, roomId, socket);
       socket.emit("left-room", { _id: roomId });
 
-      if (updatedRoom)
+      if (updatedRoom?.room?.users?.length)
         io.to(roomId).emit("users-change", {
           users: updatedRoom.room?.users || [],
           _id: roomId,
         });
+      else deleteRoom(roomId);
     });
 
     socket.on("play-pause", async (obj) => {
@@ -480,6 +482,44 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
         `New song added`,
         `${user.name} added ${song.title}`
       );
+    });
+
+    socket.on("chat", async (obj) => {
+      if (!obj.roomId || !obj.userId) return;
+
+      const { roomId, userId, message, timestamp } = obj;
+
+      let room = rooms[roomId] ? rooms[roomId] : undefined;
+
+      if (!room) {
+        sendSocketError(socket, "Room not found");
+        return;
+      }
+
+      const user = room.users.find((item) => item._id == userId);
+      if (!user) {
+        sendSocketError(socket, `user not found in the room: ${room.name}`);
+        return;
+      }
+      if (!message || !message.trim()) {
+        sendSocketError(socket, `message required`);
+        return;
+      }
+
+      const newChat = {
+        user: { ...user },
+        message,
+        timestamp: timestamp || Date.now(),
+      };
+      const newChats = [...room.chats, newChat];
+
+      updateRoom(roomId, {
+        chats: newChats,
+      });
+
+      io.to(roomId).emit("chat", {
+        chats: newChats,
+      });
     });
   });
 };
