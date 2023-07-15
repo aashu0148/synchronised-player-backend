@@ -10,6 +10,12 @@ const schema = new mongoose.Schema(
       type: String,
       ref: "User",
     },
+    admins: [
+      {
+        type: String,
+        ref: "User",
+      },
+    ],
     playlist: [
       {
         type: String,

@@ -60,37 +60,68 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
 
   io.on("connection", (socket) => {
     const leaveRoomSocketHandler = (obj) => {
-      if (!obj.roomId || !obj.userId) return;
+      if (!obj?.roomId || !obj?.userId) return;
 
       const { roomId, userId } = obj;
 
       const updatedRoom = removeUserFromRooms(userId, roomId, socket);
       socket.emit("left-room", { _id: roomId });
 
-      if (updatedRoom?.room?.users?.length)
-        io.to(roomId).emit("users-change", {
-          users: updatedRoom.room?.users || [],
-          _id: roomId,
-        });
-      else deleteRoom(roomId);
+      if (!updatedRoom?.room?.users?.length) deleteRoom(roomId);
+    };
+
+    const checkForUserInRoom = (socket, roomId, userId) => {
+      let room = rooms[roomId] ? rooms[roomId] : undefined;
+
+      if (!room) {
+        sendSocketError(socket, "Room not found");
+        return false;
+      }
+
+      const user = room.users.find((item) => item._id == userId);
+      if (!user) {
+        sendSocketError(socket, `user not found in the room: ${room.name}`);
+        return false;
+      }
+
+      return { room, user };
+    };
+
+    const isAnyHigherAuthorityExistInRoom = (room) => {
+      if (!Array.isArray(room.users)) return false;
+
+      return room.users.some((item) =>
+        [
+          roomUserTypeEnum.owner,
+          roomUserTypeEnum.admin,
+          roomUserTypeEnum.controller,
+        ].includes(item.role)
+      );
     };
 
     socket.on("join-room", async (obj) => {
-      if (!obj.roomId || !obj.userId) return;
+      if (!obj?.roomId || !obj?.userId) return;
 
       const { roomId, userId, name, email, profileImage } = obj;
+      removeUserFromRooms(userId, null, socket);
+      let room = rooms[roomId] ? { ...rooms[roomId] } : undefined;
 
       const user = {
         _id: userId,
         name,
         email,
         profileImage,
-        role: roomUserTypeEnum.member,
+        heartbeat: Date.now(),
       };
-      removeUserFromRooms(userId, null, socket);
-      let room = rooms[roomId] ? { ...rooms[roomId] } : undefined;
 
       if (room) {
+        user.role =
+          room.owner?._id == userId
+            ? roomUserTypeEnum.owner
+            : Array.isArray(room.admins) && room.admins.includes(userId)
+            ? roomUserTypeEnum.admin
+            : roomUserTypeEnum.member;
+
         room.users = Array.isArray(room.users) ? [...room.users, user] : [user];
       } else {
         room = await roomSchema
@@ -107,10 +138,19 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
           return;
         }
 
+        user.role =
+          room.owner?._id == userId
+            ? roomUserTypeEnum.owner
+            : Array.isArray(room.admins) && room.admins.includes(userId)
+            ? roomUserTypeEnum.admin
+            : roomUserTypeEnum.member;
+
         room = {
           ...room,
           users: [user],
           chats: [],
+          admins: room.admins?.length ? room.admins : [],
+          controllers: [],
           currentSong: room.playlist[0] ? room.playlist[0]._id : "",
           lastPlayedAt: Date.now(),
           paused: true,
@@ -131,22 +171,43 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
 
     socket.on("leave-room", leaveRoomSocketHandler);
 
-    socket.on("play-pause", async (obj) => {
-      if (!obj.roomId || !obj.userId) return;
+    socket.on("alive", async (obj) => {
+      if (!obj?.roomId || !obj?.userId) return;
 
       const { roomId, userId } = obj;
 
-      let room = rooms[roomId] ? rooms[roomId] : undefined;
+      const roomCheck = checkForUserInRoom(socket, roomId, userId);
+      if (!roomCheck) return;
 
-      if (!room) {
-        sendSocketError(socket, "Room not found");
-        return;
-      }
+      const { room, user } = roomCheck;
 
-      const user = room.users.find((item) => item._id == userId);
-      if (!user) {
-        sendSocketError(socket, `user not found in the room: ${room.name}`);
-        return;
+      const newUsers = room.users.map((item) =>
+        item._id == userId ? { ...item, heartbeat: Date.now() } : item
+      );
+
+      updateRoom(roomId, {
+        users: newUsers,
+      });
+    });
+
+    socket.on("play-pause", async (obj) => {
+      if (!obj?.roomId || !obj?.userId) return;
+
+      const { roomId, userId } = obj;
+
+      const roomCheck = checkForUserInRoom(socket, roomId, userId);
+      if (!roomCheck) return;
+
+      const { room, user } = roomCheck;
+
+      const userRole = user.role || roomUserTypeEnum.member;
+      const higherAuthorityExist = isAnyHigherAuthorityExistInRoom(room);
+
+      if (userRole == roomUserTypeEnum.member && higherAuthorityExist) {
+        return sendSocketError(
+          socket,
+          "Member can not play/pause until room has any owner/admin/controller"
+        );
       }
 
       const song =
@@ -169,22 +230,26 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
     });
 
     socket.on("seek", async (obj) => {
-      if (!obj.roomId || !obj.userId) return;
+      if (!obj?.roomId || !obj?.userId) return;
 
       const { roomId, userId } = obj;
       const seekSeconds = parseInt(obj.seekSeconds);
 
-      let room = rooms[roomId] ? rooms[roomId] : undefined;
+      const roomCheck = checkForUserInRoom(socket, roomId, userId);
+      if (!roomCheck) return;
 
-      if (!room) {
-        sendSocketError(socket, "Room not found");
-        return;
+      const { room, user } = roomCheck;
+
+      const userRole = user.role || roomUserTypeEnum.member;
+      const higherAuthorityExist = isAnyHigherAuthorityExistInRoom(room);
+
+      if (userRole == roomUserTypeEnum.member && higherAuthorityExist) {
+        return sendSocketError(
+          socket,
+          "Member can not seek a song until room has any owner/admin/controller"
+        );
       }
-      const user = room.users.find((item) => item._id == userId);
-      if (!user) {
-        sendSocketError(socket, `user not found in the room: ${room.name}`);
-        return;
-      }
+
       if (isNaN(seekSeconds)) {
         sendSocketError(socket, `seekSeconds required`);
         return;
@@ -222,23 +287,27 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
     });
 
     socket.on("next", async (obj) => {
-      if (!obj.roomId || !obj.userId) return;
+      if (!obj?.roomId || !obj?.userId) return;
 
       const { roomId, userId, currentSongId } = obj;
 
-      let room = rooms[roomId] ? rooms[roomId] : undefined;
+      const roomCheck = checkForUserInRoom(socket, roomId, userId);
+      if (!roomCheck) return;
 
-      if (!room) {
-        sendSocketError(socket, "Room not found");
-        return;
+      const { room, user } = roomCheck;
+
+      const userRole = user.role || roomUserTypeEnum.member;
+      const higherAuthorityExist = isAnyHigherAuthorityExistInRoom(room);
+
+      if (userRole == roomUserTypeEnum.member && higherAuthorityExist) {
+        return sendSocketError(
+          socket,
+          "Member can not play next song until room has any owner/admin/controller"
+        );
       }
+
       if (!currentSongId) {
         sendSocketError(socket, "currentSongId not found");
-        return;
-      }
-      const user = room.users.find((item) => item._id == userId);
-      if (!user) {
-        sendSocketError(socket, `user not found in the room: ${room.name}`);
         return;
       }
 
@@ -275,23 +344,27 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
     });
 
     socket.on("prev", async (obj) => {
-      if (!obj.roomId || !obj.userId) return;
+      if (!obj?.roomId || !obj?.userId) return;
 
       const { roomId, userId, currentSongId } = obj;
 
-      let room = rooms[roomId] ? rooms[roomId] : undefined;
+      const roomCheck = checkForUserInRoom(socket, roomId, userId);
+      if (!roomCheck) return;
 
-      if (!room) {
-        sendSocketError(socket, "Room not found");
-        return;
+      const { room, user } = roomCheck;
+
+      const userRole = user.role || roomUserTypeEnum.member;
+      const higherAuthorityExist = isAnyHigherAuthorityExistInRoom(room);
+
+      if (userRole == roomUserTypeEnum.member && higherAuthorityExist) {
+        return sendSocketError(
+          socket,
+          "Member can not play previous song until room has any owner/admin/controller"
+        );
       }
+
       if (!currentSongId) {
         sendSocketError(socket, "currentSongId not found");
-        return;
-      }
-      const user = room.users.find((item) => item._id == userId);
-      if (!user) {
-        sendSocketError(socket, `user not found in the room: ${room.name}`);
         return;
       }
 
@@ -328,23 +401,27 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
     });
 
     socket.on("play-song", async (obj) => {
-      if (!obj.roomId || !obj.userId) return;
+      if (!obj?.roomId || !obj?.userId) return;
 
       const { roomId, userId, songId } = obj;
 
-      let room = rooms[roomId] ? rooms[roomId] : undefined;
+      const roomCheck = checkForUserInRoom(socket, roomId, userId);
+      if (!roomCheck) return;
 
-      if (!room) {
-        sendSocketError(socket, "Room not found");
-        return;
+      const { room, user } = roomCheck;
+
+      const userRole = user.role || roomUserTypeEnum.member;
+      const higherAuthorityExist = isAnyHigherAuthorityExistInRoom(room);
+
+      if (userRole == roomUserTypeEnum.member && higherAuthorityExist) {
+        return sendSocketError(
+          socket,
+          "Member can not play another song until room has any owner/admin/controller"
+        );
       }
+
       if (!songId) {
         sendSocketError(socket, "songId not found");
-        return;
-      }
-      const user = room.users.find((item) => item._id == userId);
-      if (!user) {
-        sendSocketError(socket, `user not found in the room: ${room.name}`);
         return;
       }
 
@@ -377,23 +454,17 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
     });
 
     socket.on("sync", async (obj) => {
-      if (!obj.roomId || !obj.userId) return;
+      if (!obj?.roomId || !obj?.userId) return;
 
       const { roomId, userId, secondsPlayed } = obj;
 
-      let room = rooms[roomId] ? rooms[roomId] : undefined;
+      const roomCheck = checkForUserInRoom(socket, roomId, userId);
+      if (!roomCheck) return;
 
-      if (!room) {
-        sendSocketError(socket, "Room not found");
-        return;
-      }
+      const { room, user } = roomCheck;
+
       if (isNaN(secondsPlayed)) {
         sendSocketError(socket, "secondsPlayed not found");
-        return;
-      }
-      const user = room.users.find((item) => item._id == userId);
-      if (!user) {
-        sendSocketError(socket, `user not found in the room: ${room.name}`);
         return;
       }
 
@@ -403,23 +474,29 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
     });
 
     socket.on("update-playlist", async (obj) => {
-      if (!obj.roomId || !obj.userId) return;
+      if (!obj?.roomId || !obj?.userId) return;
 
       const { roomId, userId, songIds } = obj;
 
-      let room = rooms[roomId] ? rooms[roomId] : undefined;
+      const roomCheck = checkForUserInRoom(socket, roomId, userId);
+      if (!roomCheck) return;
 
-      if (!room) {
-        sendSocketError(socket, "Room not found");
-        return;
+      const { room, user } = roomCheck;
+
+      const userRole = user.role || roomUserTypeEnum.member;
+      if (
+        [roomUserTypeEnum.member, roomUserTypeEnum.controller].includes(
+          userRole
+        )
+      ) {
+        return sendSocketError(
+          socket,
+          `${userRole} can not update the playlist. You need admin access for this action`
+        );
       }
+
       if (!Array.isArray(songIds)) {
         sendSocketError(socket, "songIds not found");
-        return;
-      }
-      const user = room.users.find((item) => item._id == userId);
-      if (!user) {
-        sendSocketError(socket, `user not found in the room: ${room.name}`);
         return;
       }
 
@@ -446,23 +523,29 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
     });
 
     socket.on("add-song", async (obj) => {
-      if (!obj.roomId || !obj.userId) return;
+      if (!obj?.roomId || !obj?.userId) return;
 
       const { roomId, userId, song } = obj;
 
-      let room = rooms[roomId] ? rooms[roomId] : undefined;
+      const roomCheck = checkForUserInRoom(socket, roomId, userId);
+      if (!roomCheck) return;
 
-      if (!room) {
-        sendSocketError(socket, "Room not found");
-        return;
+      const { room, user } = roomCheck;
+
+      const userRole = user.role || roomUserTypeEnum.member;
+      if (
+        [roomUserTypeEnum.member, roomUserTypeEnum.controller].includes(
+          userRole
+        )
+      ) {
+        return sendSocketError(
+          socket,
+          `${userRole} can not add new song. You need admin access for this action`
+        );
       }
+
       if (!song?._id) {
         sendSocketError(socket, "song not found");
-        return;
-      }
-      const user = room.users.find((item) => item._id == userId);
-      if (!user) {
-        sendSocketError(socket, `user not found in the room: ${room.name}`);
         return;
       }
 
@@ -487,22 +570,15 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
     });
 
     socket.on("chat", async (obj) => {
-      if (!obj.roomId || !obj.userId) return;
+      if (!obj?.roomId || !obj?.userId) return;
 
       const { roomId, userId, message, timestamp } = obj;
 
-      let room = rooms[roomId] ? rooms[roomId] : undefined;
+      const roomCheck = checkForUserInRoom(socket, roomId, userId);
+      if (!roomCheck) return;
 
-      if (!room) {
-        sendSocketError(socket, "Room not found");
-        return;
-      }
+      const { room, user } = roomCheck;
 
-      const user = room.users.find((item) => item._id == userId);
-      if (!user) {
-        sendSocketError(socket, `user not found in the room: ${room.name}`);
-        return;
-      }
       if (!message || !message.trim()) {
         sendSocketError(socket, `message required`);
         return;

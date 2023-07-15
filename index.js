@@ -28,10 +28,12 @@ const rooms = {
     owner: "userID",
     playlist: ["songId1", "songId2"],
     users: [
-      { name: "name1", email: "email1", _id: "_id1", role: "" },
-      { name: "name2", email: "email2", _id: "_id2", role: "" },
-      { name: "name3", email: "email3", _id: "_id3", role: "" },
+      { name: "name1", email: "email1", _id: "_id1", role: "", heartbeat: "" },
+      { name: "name2", email: "email2", _id: "_id2", role: "", heartbeat: "" },
+      { name: "name3", email: "email3", _id: "_id3", role: "", heartbeat: "" },
     ],
+    admins: ["uid"],
+    controllers: ["uid"],
     chats: [
       {
         user: { name: "name1", _id: "id1", profileImage: "" },
@@ -45,9 +47,11 @@ const rooms = {
     playedSeconds: 0,
   },
 };
+
 const updateRoom = (roomId, room) => {
   if (typeof room !== "object") return null;
 
+  const origUsersLength = rooms[roomId]?.users?.length || 0;
   let updatedRoom;
   if (rooms[roomId]) updatedRoom = { ...rooms[roomId], ...room };
   else {
@@ -58,12 +62,61 @@ const updateRoom = (roomId, room) => {
 
   rooms[roomId] = updatedRoom;
 
+  if (origUsersLength !== updatedRoom?.users?.length || room?.users?.length) {
+    io.to(roomId).emit("users-change", {
+      users: updatedRoom.users,
+      _id: roomId,
+    });
+  }
+
   return { ...updatedRoom };
 };
 const deleteRoom = (roomId) => {
   if (!rooms[roomId]) return;
 
   delete rooms[roomId];
+};
+
+const cleanUpRooms = () => {
+  console.log("🔵 Cleaning up the rooms 🧹🧹");
+  // TODO -> remove empty rooms and remove inactive users
+
+  const roomKeys = Object.keys(rooms);
+  roomKeys.forEach((key) => {
+    const currentTime = Date.now();
+    const room = rooms[key];
+    const users = Array.isArray(room.users)
+      ? room.users.filter((item) =>
+          currentTime - item.heartbeat < 90 * 1000 ? true : false
+        )
+      : [];
+    const removedUsers = Array.isArray(room.users)
+      ? room.users.filter((item) =>
+          currentTime - item.heartbeat < 90 * 1000 ? false : true
+        )
+      : [];
+
+    if (!users.length) {
+      deleteRoom(key);
+      console.log(`🟢 Cleared empty room - ${room.name}`);
+      return;
+    }
+
+    if (users.length !== room.users.length) {
+      updateRoom(key, { users });
+
+      io.to(key).emit("users-change", {
+        users,
+        _id: key,
+      });
+
+      console.log(
+        `🟢 Cleared ${removedUsers.length} [${removedUsers
+          .map((item) => item.name)
+          .join(", ")}] inactive users`
+      );
+    }
+  });
 };
 
 app.use(userRoutes);
@@ -76,6 +129,9 @@ app.use((req, _res, next) => {
   next();
 }, roomRoutes);
 app.get("/hi", (_req, res) => res.send("Hello there buddy!"));
+
+// interval for cleaning rooms
+setInterval(cleanUpRooms, 120 * 1000);
 
 server.listen(5000, () => {
   console.log("Backend is up at port 5000");
