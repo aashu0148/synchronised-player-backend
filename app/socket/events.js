@@ -70,17 +70,23 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
       if (!updatedRoom?.room?.users?.length) deleteRoom(roomId);
     };
 
-    const checkForUserInRoom = (socket, roomId, userId) => {
+    const checkForUserInRoom = (
+      socket,
+      roomId,
+      userId,
+      doNotSendError = false
+    ) => {
       let room = rooms[roomId] ? rooms[roomId] : undefined;
 
       if (!room) {
-        sendSocketError(socket, "Room not found");
+        if (!doNotSendError) sendSocketError(socket, "Room not found");
         return false;
       }
 
       const user = room.users.find((item) => item._id == userId);
       if (!user) {
-        sendSocketError(socket, `user not found in the room: ${room.name}`);
+        if (!doNotSendError)
+          sendSocketError(socket, `user not found in the room: ${room.name}`);
         return false;
       }
 
@@ -153,7 +159,7 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
           controllers: [],
           currentSong: room.playlist[0] ? room.playlist[0]._id : "",
           lastPlayedAt: Date.now(),
-          paused: true,
+          paused: false,
           secondsPlayed: 0,
         };
       }
@@ -176,7 +182,7 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
 
       const { roomId, userId } = obj;
 
-      const roomCheck = checkForUserInRoom(socket, roomId, userId);
+      const roomCheck = checkForUserInRoom(socket, roomId, userId, true);
       if (!roomCheck) return;
 
       const { room, user } = roomCheck;

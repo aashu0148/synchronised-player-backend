@@ -138,7 +138,7 @@ const promoteToAdmin = async (req, res) => {
     .then((rm) => {
       if (req.updateRoom)
         req.updateRoom(roomId, {
-          admins: rm.admins,
+          admins: admins,
           users: Array.isArray(socketRm.users)
             ? socketRm.users.map((item) =>
                 item._id == adminUserId
@@ -189,10 +189,10 @@ const demoteAdmin = async (req, res) => {
   roomSchema
     .updateOne({ _id: roomId }, { $set: { admins } })
     .exec()
-    .then((rm) => {
+    .then(() => {
       if (req.updateRoom)
         req.updateRoom(roomId, {
-          admins: rm.admins,
+          admins: admins,
           users: Array.isArray(socketRm.users)
             ? socketRm.users.map((item) =>
                 item._id == adminUserId

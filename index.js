@@ -79,7 +79,7 @@ const deleteRoom = (roomId) => {
 
 const cleanUpRooms = () => {
   console.log("🔵 Cleaning up the rooms 🧹🧹");
-  // TODO -> remove empty rooms and remove inactive users
+  const maxHeartbeatBuffer = 90;
 
   const roomKeys = Object.keys(rooms);
   roomKeys.forEach((key) => {
@@ -87,12 +87,16 @@ const cleanUpRooms = () => {
     const room = rooms[key];
     const users = Array.isArray(room.users)
       ? room.users.filter((item) =>
-          currentTime - item.heartbeat < 90 * 1000 ? true : false
+          currentTime - item.heartbeat < maxHeartbeatBuffer * 1000
+            ? true
+            : false
         )
       : [];
     const removedUsers = Array.isArray(room.users)
       ? room.users.filter((item) =>
-          currentTime - item.heartbeat < 90 * 1000 ? false : true
+          currentTime - item.heartbeat < maxHeartbeatBuffer * 1000
+            ? false
+            : true
         )
       : [];
 
