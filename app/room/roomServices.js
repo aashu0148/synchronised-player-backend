@@ -315,6 +315,26 @@ const demoteController = async (req, res) => {
   createResponse(res, { message: `${controllerUser.name} demoted to user` });
 };
 
+const getCurrentRoomOfUser = (req, res) => {
+  const userId = req.user._id;
+
+  const rooms = req.rooms;
+
+  if (!Object.keys(rooms).length)
+    return createError(res, "Rooms not available", 500);
+
+  const roomKey = Object.keys(rooms).find((key) =>
+    rooms[key]?.users
+      ? rooms[key].users.some((item) => item._id == userId)
+      : false
+  );
+
+  if (!roomKey)
+    return createResponse(res, { message: "User not found in any room" });
+
+  createResponse(res, { message: "Room found", roomId: roomKey });
+};
+
 module.exports = {
   createRoom,
   deleteRoom,
@@ -324,4 +344,5 @@ module.exports = {
   demoteAdmin,
   promoteToController,
   demoteController,
+  getCurrentRoomOfUser,
 };

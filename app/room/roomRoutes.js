@@ -9,11 +9,13 @@ const {
   demoteController,
   promoteToAdmin,
   promoteToController,
+  getCurrentRoomOfUser,
 } = require("./roomServices");
 const { authenticateUserMiddleware } = require("../user/userMiddleware");
 
 const router = express.Router();
 
+router.get("/room/current", authenticateUserMiddleware, getCurrentRoomOfUser);
 router.get("/room/all", authenticateUserMiddleware, getAllRooms);
 router.post("/room", authenticateUserMiddleware, createRoom);
 router.put("/room/:rid", authenticateUserMiddleware, updateRoomToDb);
