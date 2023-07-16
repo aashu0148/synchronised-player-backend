@@ -321,7 +321,7 @@ const getCurrentRoomOfUser = (req, res) => {
   const rooms = req.rooms;
 
   if (!Object.keys(rooms).length)
-    return createError(res, "Rooms not available", 500);
+    return createResponse(res, { message: "User not found in any room" });
 
   const roomKey = Object.keys(rooms).find((key) =>
     rooms[key]?.users
