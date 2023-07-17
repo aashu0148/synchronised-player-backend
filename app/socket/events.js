@@ -328,6 +328,7 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
       let nextSongIndex =
         songIndex == room.playlist.length - 1 ? 0 : songIndex + 1;
       const nextSong = room.playlist[nextSongIndex];
+      if (room.currentSong == nextSong?._id) return;
 
       updateRoom(roomId, {
         secondsPlayed: 0,
@@ -346,7 +347,7 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
         roomId,
         `Next song`,
         autoPlay
-          ? "Auto played next song"
+          ? `Auto played next song: ${nextSong?.title}`
           : `${user.name} played "${nextSong?.title}" as a next song`
       );
     });
