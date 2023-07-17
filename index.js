@@ -114,6 +114,13 @@ const cleanUpRooms = () => {
         users,
         _id: key,
       });
+      io.to(key).emit("notification", {
+        title: "Inactive users removed" || "",
+        description:
+          `Removed [${removedUsers
+            .map((item) => item.name)
+            .join(", ")}] from the room as they were not found active` || "",
+      });
 
       console.log(
         `🟢 Cleared ${removedUsers.length} [${removedUsers
