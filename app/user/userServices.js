@@ -1,4 +1,6 @@
 const userSchema = require("./userSchema");
+const { OAuth2Client } = require("google-auth-library");
+const bcrypt = require("bcrypt");
 
 const {
   createError,
@@ -6,45 +8,66 @@ const {
   validateEmail,
 } = require("../../util/util");
 
+const verifyGoogleToken = async ({ token }) => {
+  const clientId = process.env.CLIENT_ID;
+  try {
+    const client = new OAuth2Client(clientId);
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: clientId,
+    });
+    if (!ticket) {
+      return { success: false, msg: "Invalid token!" };
+    }
+    const payload = ticket.getPayload();
+    payload["profileImage"] = payload.picture;
+
+    return { success: true, payload };
+  } catch (error) {
+    const err = error.message || error;
+    return { success: false, msg: err };
+  }
+};
+
 const handleGoogleLogin = async (req, res) => {
-  const { name, email, profileImage, token } = req.body;
+  let { credential: token, clientId } = req.body;
 
-  if (!email) {
-    createError(res, "Email required", 422);
-    return;
+  let { origin } = req.query;
+
+  if (!token || !clientId) {
+    return createError(400, "Token and clientId are required", res);
   }
 
-  const user = await userSchema.findOne({ email });
-  if (user) {
-    createResponse(res, { user, token: user.token });
-    return;
+  let data = { token, clientId };
+  let verifyRes = await verifyGoogleToken(data);
+  if (!verifyRes.success) {
+    return createError(res, verifyRes.msg, 400);
   }
 
-  if (!name) {
-    createError(res, "Name required", 422);
-    return;
-  } else if (!validateEmail(email)) {
-    createError(res, "Invalid email", 422);
-    return;
-  } else if (!token || token?.length < 10) {
-    createError(res, "Token required", 422);
-    return;
-  }
+  const { name, email, profileImage } = verifyRes.payload;
 
-  const newUser = new userSchema({
-    name,
-    email,
-    token,
-    profileImage,
-  });
+  const tokenHash = bcrypt.hashSync(token, 5);
 
-  newUser
+  let user = await userSchema.findOne({ email });
+
+  if (user) user.token = tokenHash;
+  else
+    user = new userSchema({
+      name,
+      email,
+      token: tokenHash,
+      profileImage,
+    });
+
+  user
     .save()
     .then((user) => {
-      createResponse(res, {
-        user,
-        token: user.token,
-      });
+      const url = new URL(`${origin}/auth`);
+      for (const key in req.query) url.searchParams.append(key, req.query[key]);
+
+      url.searchParams.append("accessToken", user.token);
+
+      res.redirect(url.toString());
     })
     .catch((err) => {
       createError(res, err.message || "Something went wrong", 500, err);
