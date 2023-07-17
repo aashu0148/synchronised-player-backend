@@ -295,7 +295,7 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
     socket.on("next", async (obj) => {
       if (!obj?.roomId || !obj?.userId) return;
 
-      const { roomId, userId, currentSongId } = obj;
+      const { roomId, userId, currentSongId, autoPlay = false } = obj;
 
       const roomCheck = checkForUserInRoom(socket, roomId, userId);
       if (!roomCheck) return;
@@ -344,8 +344,10 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
       });
       sendNotificationInRoom(
         roomId,
-        `Next song played by ${user.name}`,
-        `${user.name} played "${nextSong?.title}" as a next song`
+        `Next song`,
+        autoPlay
+          ? "Auto played next song"
+          : `${user.name} played "${nextSong?.title}" as a next song`
       );
     });
 
@@ -604,6 +606,42 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
       io.to(roomId).emit("chat", {
         chats: newChats,
       });
+    });
+
+    socket.on("clear-chat", async (obj) => {
+      if (!obj?.roomId || !obj?.userId) return;
+
+      const { roomId, userId } = obj;
+
+      const roomCheck = checkForUserInRoom(socket, roomId, userId);
+      if (!roomCheck) return;
+
+      const { room, user } = roomCheck;
+
+      const userRole = user.role || roomUserTypeEnum.member;
+      if (
+        [roomUserTypeEnum.member, roomUserTypeEnum.controller].includes(
+          userRole
+        )
+      ) {
+        return sendSocketError(
+          socket,
+          `${userRole} can not clear chats. You need admin access for this action`
+        );
+      }
+
+      updateRoom(roomId, {
+        chats: [],
+      });
+
+      io.to(roomId).emit("chat", {
+        chats: [],
+      });
+      sendNotificationInRoom(
+        roomId,
+        `Chats cleared`,
+        `${user.name} cleared the chats`
+      );
     });
   });
 };
