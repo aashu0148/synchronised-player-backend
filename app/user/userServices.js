@@ -50,8 +50,7 @@ const handleGoogleLogin = async (req, res) => {
 
   let user = await userSchema.findOne({ email });
 
-  if (user) user.token = tokenHash;
-  else
+  if (!user)
     user = new userSchema({
       name,
       email,
