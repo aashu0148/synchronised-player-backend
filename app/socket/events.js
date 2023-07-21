@@ -621,6 +621,7 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
         userId,
         user,
         audio: newAudio,
+        timestamp: Date.now(),
       });
     });
 
