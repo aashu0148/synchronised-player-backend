@@ -177,6 +177,19 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
 
     socket.on("leave-room", leaveRoomSocketHandler);
 
+    socket.on("get-room", async (obj) => {
+      if (!obj?.roomId || !obj?.userId) return;
+
+      const { roomId, userId } = obj;
+
+      const roomCheck = checkForUserInRoom(socket, roomId, userId);
+      if (!roomCheck) return;
+
+      const { room, user } = roomCheck;
+
+      socket.emit("get-room", { room });
+    });
+
     socket.on("alive", async (obj) => {
       if (!obj?.roomId || !obj?.userId) return;
 
@@ -576,6 +589,39 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
         `New song added`,
         `${user.name} added ${song.title}`
       );
+    });
+
+    socket.on("voice", async (obj) => {
+      if (!obj?.roomId || !obj?.userId) return;
+
+      const { roomId, userId, audio } = obj;
+
+      const roomCheck = checkForUserInRoom(socket, roomId, userId);
+      if (!roomCheck) return;
+
+      const { room, user } = roomCheck;
+
+      const userRole = user.role || roomUserTypeEnum.member;
+      if (
+        [roomUserTypeEnum.member, roomUserTypeEnum.controller].includes(
+          userRole
+        )
+      ) {
+        return sendSocketError(
+          socket,
+          `${userRole} are not allowed to do voice chats. Admin access required`
+        );
+      }
+      if (!audio)
+        return sendSocketError(socket, "audio required to voice chat");
+
+      const newAudio = "data:audio/ogg;" + audio;
+
+      socket.broadcast.to(roomId).emit("voice", {
+        userId,
+        user,
+        audio: newAudio,
+      });
     });
 
     socket.on("chat", async (obj) => {
