@@ -306,6 +306,7 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
     });
 
     socket.on("next", async (obj) => {
+      console.log("🟡next event", obj);
       if (!obj?.roomId || !obj?.userId) return;
 
       const { roomId, userId, currentSongId, autoPlay = false } = obj;
