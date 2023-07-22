@@ -100,6 +100,35 @@ const deleteRoom = async (req, res) => {
     .catch((err) => createError(res, "Error deleting room", 500, err));
 };
 
+const removeDuplicateSongsFromRoom = async (req, res) => {
+  const roomId = req.params.rid;
+
+  const room = await roomSchema.findOne({ _id: roomId });
+  if (!room) {
+    createError(res, "room not found to delete", 404);
+    return;
+  }
+
+  const playlist = room.playlist.filter(
+    (item, index, self) => self.indexOf(item) == index
+  );
+  room.playlist = playlist;
+
+  room
+    .save()
+    .then(() =>
+      createResponse(res, { message: "Room now have unique songs only!" })
+    )
+    .catch((err) =>
+      createError(
+        res,
+        { message: err?.message || "Something went wrong" },
+        500,
+        err
+      )
+    );
+};
+
 const promoteToAdmin = async (req, res) => {
   const userId = req.user?._id;
 
@@ -345,4 +374,5 @@ export {
   promoteToController,
   demoteController,
   getCurrentRoomOfUser,
+  removeDuplicateSongsFromRoom,
 };

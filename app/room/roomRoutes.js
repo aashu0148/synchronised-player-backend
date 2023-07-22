@@ -10,6 +10,7 @@ import {
   promoteToAdmin,
   promoteToController,
   getCurrentRoomOfUser,
+  removeDuplicateSongsFromRoom,
 } from "./roomServices.js";
 import { authenticateUserMiddleware } from "../user/userMiddleware.js";
 
@@ -19,6 +20,7 @@ router.get("/room/current", authenticateUserMiddleware, getCurrentRoomOfUser);
 router.get("/room/all", authenticateUserMiddleware, getAllRooms);
 router.post("/room", authenticateUserMiddleware, createRoom);
 router.put("/room/:rid", authenticateUserMiddleware, updateRoomToDb);
+router.get("/room/remove-duplicates/:rid", removeDuplicateSongsFromRoom);
 router.delete("/room/:rid", authenticateUserMiddleware, deleteRoom);
 router.get(
   "/room/:rid/promote/admin/:uid",
