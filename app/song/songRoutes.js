@@ -1,14 +1,15 @@
-const express = require("express");
+import express from "express";
 
-const {
+import {
   getAllSongs,
   addNewSong,
   updateSong,
   deleteSong,
   searchSong,
   checkSongAvailability,
-} = require("./songServices");
-const { authenticateUserMiddleware } = require("../user/userMiddleware");
+  uploadSongsToFirebaseAndDb,
+} from "./songServices.js";
+import { authenticateUserMiddleware } from "../user/userMiddleware.js";
 
 const router = express.Router();
 
@@ -18,5 +19,6 @@ router.get("/song/all", getAllSongs);
 router.post("/song", authenticateUserMiddleware, addNewSong);
 router.put("/song/:sid", authenticateUserMiddleware, updateSong);
 router.delete("/song/:sid", authenticateUserMiddleware, deleteSong);
+router.post("/song/bulk/d-u", uploadSongsToFirebaseAndDb);
 
-module.exports = router;
+export default router;

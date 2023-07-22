@@ -1,3 +1,8 @@
+import crypto from "crypto";
+import { parseBuffer } from "music-metadata";
+
+import { uploadAudio } from "./firebase.js";
+
 const createError = (res, message, code = 400, err = "") => {
   res.status(code).json({
     success: false,
@@ -27,9 +32,107 @@ function formatSecondsToMinutesSeconds(seconds) {
   }`;
 }
 
-module.exports = {
+function getBlobDuration(blob) {
+  return new Promise((resolve, reject) => {
+    blob.arrayBuffer().then(async (buffer) => {
+      const audioBuffer = Buffer.from(buffer);
+
+      const audioMetadata = await parseBuffer(audioBuffer, "audio/mp3");
+
+      if (!audioMetadata) {
+        console.log("Failed to read meta-data from audio");
+        reject(0);
+        return;
+      }
+
+      const durationInSeconds = audioMetadata.format.duration;
+      resolve(durationInSeconds);
+    });
+  });
+}
+
+const getFileHashSha256 = async (blob) => {
+  if (!blob) return;
+
+  const uint8Array = new Uint8Array(await blob.arrayBuffer());
+  const hashBuffer = await crypto.subtle.digest("SHA-256", uint8Array);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+
+  return hashArray.map((h) => h.toString(16).padStart(2, "0")).join("");
+};
+
+const uploadAudioSync = (blob, filename) => {
+  if (!filename) return "";
+
+  let lastLoggedProgress = 0;
+
+  return new Promise((res) => {
+    uploadAudio(
+      blob,
+      filename,
+      (p) => {
+        if (p - lastLoggedProgress >= 30) {
+          console.log(`${parseInt(p)}% done`);
+          lastLoggedProgress = p;
+        }
+      },
+      (url) => res(url),
+      (err) => {
+        console.log(err);
+        res(null);
+      }
+    );
+  });
+};
+
+function downloadFile(url, fileName) {
+  console.log(`Downloading file:${fileName}`);
+  return new Promise((res) =>
+    fetch(url)
+      .then((response) => {
+        const totalSize = response.headers.get("Content-Length");
+        let downloadedSize = 0;
+        let lastLoggedProgress = 0;
+        const chunks = [];
+
+        const reader = response.body.getReader();
+
+        const pump = () => {
+          return reader.read().then(({ value, done }) => {
+            if (done) {
+              console.log("🟢Download completed");
+              const blob = new Blob(chunks);
+
+              res(blob);
+              return;
+            }
+
+            downloadedSize += value.length;
+            const progress = Math.floor((downloadedSize / totalSize) * 100);
+
+            if (progress - lastLoggedProgress >= 30) {
+              console.log(`${progress}% done`);
+              lastLoggedProgress = progress;
+            }
+
+            chunks.push(value);
+            return pump();
+          });
+        };
+
+        pump();
+      })
+      .catch((err) => console.log("Error downloading song", err))
+  );
+}
+
+export {
   createError,
   createResponse,
   validateEmail,
   formatSecondsToMinutesSeconds,
+  uploadAudioSync,
+  getFileHashSha256,
+  downloadFile,
+  getBlobDuration,
 };

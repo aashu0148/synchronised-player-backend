@@ -5,4 +5,4 @@ const roomUserTypeEnum = {
   member: "member",
 };
 
-module.exports = { roomUserTypeEnum };
+export { roomUserTypeEnum };

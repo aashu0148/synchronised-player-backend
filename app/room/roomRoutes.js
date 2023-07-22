@@ -1,6 +1,6 @@
-const express = require("express");
+import express from "express";
 
-const {
+import {
   createRoom,
   deleteRoom,
   updateRoomToDb,
@@ -10,8 +10,8 @@ const {
   promoteToAdmin,
   promoteToController,
   getCurrentRoomOfUser,
-} = require("./roomServices");
-const { authenticateUserMiddleware } = require("../user/userMiddleware");
+} from "./roomServices.js";
+import { authenticateUserMiddleware } from "../user/userMiddleware.js";
 
 const router = express.Router();
 
@@ -41,4 +41,4 @@ router.get(
   demoteController
 );
 
-module.exports = router;
+export default router;

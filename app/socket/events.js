@@ -1,6 +1,6 @@
-const roomSchema = require("../room/roomSchema");
-const { roomUserTypeEnum } = require("../../util/constant");
-const { formatSecondsToMinutesSeconds } = require("../../util/util");
+import roomSchema from "../room/roomSchema.js";
+import { roomUserTypeEnum } from "../../util/constant.js";
+import { formatSecondsToMinutesSeconds } from "../../util/util.js";
 
 const updateRoomPlaylist = async (roomId, songIds) => {
   if (!roomId) return;
@@ -694,4 +694,4 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
   });
 };
 
-module.exports = SocketEvents;
+export default SocketEvents;

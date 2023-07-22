@@ -1,11 +1,11 @@
-const express = require("express");
+import express from "express";
 
-const {
+import {
   handleGoogleLogin,
   getCurrentUser,
   getAdminAccess,
-} = require("./userServices");
-const { authenticateUserMiddleware } = require("./userMiddleware");
+} from "./userServices.js";
+import { authenticateUserMiddleware } from "./userMiddleware.js";
 
 const router = express.Router();
 
@@ -13,4 +13,4 @@ router.post("/user/google-login", handleGoogleLogin);
 router.post("/user/admin/access", getAdminAccess);
 router.get("/user/me", authenticateUserMiddleware, getCurrentUser);
 
-module.exports = router;
+export default router;

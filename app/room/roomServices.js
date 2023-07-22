@@ -1,7 +1,7 @@
-const roomSchema = require("./roomSchema");
-const userSchema = require("../user/userSchema");
-const { createError, createResponse } = require("../../util/util");
-const { roomUserTypeEnum } = require("../../util/constant");
+import roomSchema from "./roomSchema.js";
+import userSchema from "../user/userSchema.js";
+import { createError, createResponse } from "../../util/util.js";
+import { roomUserTypeEnum } from "../../util/constant.js";
 
 const getAllRooms = async (req, res) => {
   const rooms = await roomSchema
@@ -335,7 +335,7 @@ const getCurrentRoomOfUser = (req, res) => {
   createResponse(res, { message: "Room found", roomId: roomKey });
 };
 
-module.exports = {
+export {
   createRoom,
   deleteRoom,
   updateRoomToDb,

@@ -1,4 +1,4 @@
-const userSchema = require("./userSchema");
+import userSchema from "./userSchema.js";
 
 const authenticateUserMiddleware = async (req, res, next) => {
   const token = req.headers.authorization;
@@ -29,6 +29,4 @@ const authenticateUserMiddleware = async (req, res, next) => {
   next();
 };
 
-module.exports = {
-  authenticateUserMiddleware,
-};
+export { authenticateUserMiddleware };

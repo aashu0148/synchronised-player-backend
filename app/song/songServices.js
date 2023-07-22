@@ -1,6 +1,13 @@
-const songSchema = require("./songSchema");
+import songSchema from "./songSchema.js";
 
-const { createError, createResponse } = require("../../util/util");
+import {
+  createError,
+  createResponse,
+  uploadAudioSync,
+  downloadFile,
+  getFileHashSha256,
+  getBlobDuration,
+} from "../../util/util.js";
 
 const getAllSongs = async (req, res) => {
   const songs = await songSchema.find({}).sort({ createdAt: -1 });
@@ -133,11 +140,80 @@ const deleteSong = async (req, res) => {
   }
 };
 
-module.exports = {
+const uploadSongsToFirebaseAndDb = async (req, res) => {
+  const { tracks } = req.body;
+
+  if (!Array.isArray(tracks)) return createError(res, "tracks required");
+  if (!tracks[0]?.title || !tracks[0]?.artists || !tracks[0]?.link)
+    return createError(res, "title,artists,link required");
+
+  for (let i = 0; i < tracks.length; ++i) {
+    console.log(`🔵File :${i + 1}/${tracks.length} `);
+    const file = tracks[i];
+    const filename = file.title + "_-_" + file.artists + ".mp3";
+    const blob = await downloadFile(file.link, filename);
+
+    if (!blob || !blob?.size || blob?.size < 1 * 1024 * 1024) {
+      console.log("🔴Discarded, file is smaller than 1MB");
+      continue;
+    }
+
+    const blobHash = await getFileHashSha256(blob);
+
+    const song = await songSchema.findOne({
+      $or: [
+        {
+          title: file.title,
+        },
+        {
+          hash: blobHash,
+        },
+      ],
+    });
+    if (song) {
+      console.log("🔴song already exist:", song.title);
+      continue;
+    }
+    const duration = await getBlobDuration(blob);
+    if (!duration) {
+      console.log("🔴can not calculate duration");
+      continue;
+    }
+
+    console.log(`🟡uploading file:${filename} to firebase storage`);
+    const url = await uploadAudioSync(blob, filename);
+    if (!url) {
+      console.log("🔴failed to get URL");
+      continue;
+    }
+
+    const meta = {
+      title: file.title,
+      url,
+      hash: blobHash,
+      artist: file.artists,
+      fileType: "audio/mp3",
+      length: parseInt(duration),
+    };
+
+    const newSong = new songSchema(meta);
+
+    await newSong.save();
+
+    console.log("🟢Song saved in DB");
+  }
+
+  res.status(200).json({
+    message: "Hello",
+  });
+};
+
+export {
   getAllSongs,
   addNewSong,
   updateSong,
   deleteSong,
   searchSong,
   checkSongAvailability,
+  uploadSongsToFirebaseAndDb,
 };

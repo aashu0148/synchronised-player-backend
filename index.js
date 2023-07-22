@@ -1,23 +1,25 @@
-const express = require("express");
-const cors = require("cors");
-const mongoose = require("mongoose");
-const socketIo = require("socket.io");
-const dotenv = require("dotenv");
+import express from "express";
+import cors from "cors";
+import mongoose from "mongoose";
+import { Server as socketServer } from "socket.io";
+import http from "http";
+import dotenv from "dotenv";
 dotenv.config();
 
-const SocketEvents = require("./app/socket/events");
-const userRoutes = require("./app/user/userRoutes");
-const songRoutes = require("./app/song/songRoutes");
-const roomRoutes = require("./app/room/roomRoutes");
+import SocketEvents from "./app/socket/events.js";
+import userRoutes from "./app/user/userRoutes.js";
+import songRoutes from "./app/song/songRoutes.js";
+import roomRoutes from "./app/room/roomRoutes.js";
 
 const app = express();
-const server = require("http").createServer(app);
-const io = new socketIo.Server();
-io.attach(server, {
-  cors: {
-    origin: "*",
-  },
-});
+const server = http.createServer(app);
+const io = new socketServer(server, { cors: { origin: "*" } });
+
+// io.attach(server, {
+//   cors: {
+//     origin: "*",
+//   },
+// });
 
 app.use(cors());
 app.use(express.json());

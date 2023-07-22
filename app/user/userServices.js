@@ -1,12 +1,8 @@
-const userSchema = require("./userSchema");
-const { OAuth2Client } = require("google-auth-library");
-const bcrypt = require("bcrypt");
+import { OAuth2Client } from "google-auth-library";
+import bcrypt from "bcrypt";
 
-const {
-  createError,
-  createResponse,
-  validateEmail,
-} = require("../../util/util");
+import userSchema from "./userSchema.js";
+import { createError, createResponse, validateEmail } from "../../util/util.js";
 
 const verifyGoogleToken = async ({ token }) => {
   const clientId = process.env.CLIENT_ID;
@@ -90,4 +86,4 @@ const getCurrentUser = (req, res) => {
   createResponse(res, req.user, 200);
 };
 
-module.exports = { handleGoogleLogin, getCurrentUser, getAdminAccess };
+export { handleGoogleLogin, getCurrentUser, getAdminAccess };
