@@ -314,7 +314,6 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
       if (!roomCheck) return;
 
       const { room, user } = roomCheck;
-      console.log("🟡next event", room.name, user.name);
 
       const userRole = user.role || roomUserTypeEnum.member;
       const higherAuthorityExist = isAnyHigherAuthorityExistInRoom(room);
@@ -333,6 +332,13 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
 
       const songIndex = room.playlist.findIndex(
         (item) => item._id == currentSongId
+      );
+      console.log(
+        "🟡next event",
+        room.name,
+        user.name,
+        currentSongId,
+        songIndex
       );
       if (room.playlist[songIndex]?.length < 0) {
         sendSocketError(socket, `Can not find current song in the playlist`);
