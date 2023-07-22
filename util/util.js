@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { parseBuffer } from "music-metadata";
 import axios from "axios";
+import { Blob } from "buffer";
 
 import { uploadAudio } from "./firebase.js";
 
