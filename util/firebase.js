@@ -6,6 +6,21 @@ import {
   uploadBytesResumable,
 } from "firebase/storage";
 
+// connectStorageEmulator.json for GCP:
+//   [
+//   {
+//     "origin": ["*"],
+//     "method": ["GET"],
+//     "maxAgeSeconds": 3600
+//   }
+//   ]
+
+//   create a cors.json file with above contents
+
+//  -> now to check for cors : gsutil cors get gs://sleeping-owl-storage-1.appspot.com
+//  -> to set the above file for cors :  gsutil cors set cors.json gs://sleeping-owl-storage-1.appspot.com
+//  -> copy files from one bucket to another : gsutil -m rsync -r gs://bucket-source/dir gs://bucket-destination/dir
+
 const firebaseConfig = {
   apiKey: "AIzaSyDLviPuwr5eUzpXT-ChHUEMujf2iffhUbA",
   authDomain: "sleeping-owl-storage-1.firebaseapp.com",

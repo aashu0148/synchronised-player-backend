@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { parseBuffer } from "music-metadata";
+import axios from "axios";
 
 import { uploadAudio } from "./firebase.js";
 
@@ -85,45 +86,77 @@ const uploadAudioSync = (blob, filename) => {
   });
 };
 
+// function downloadFile(url, fileName) {
+//   console.log(`Downloading file:${fileName}`);
+//   return new Promise((res) =>
+//     fetch(url)
+//       .then((response) => {
+//         const totalSize = response.headers.get("Content-Length");
+//         let downloadedSize = 0;
+//         let lastLoggedProgress = 0;
+//         const chunks = [];
+
+//         const reader = response.body.getReader();
+
+//         const pump = () => {
+//           return reader.read().then(({ value, done }) => {
+//             if (done) {
+//               console.log("🟢Download completed");
+//               const blob = new Blob(chunks);
+
+//               res(blob);
+//               return;
+//             }
+
+//             downloadedSize += value.length;
+//             const progress = Math.floor((downloadedSize / totalSize) * 100);
+
+//             if (progress - lastLoggedProgress >= 30) {
+//               console.log(`${progress}% done`);
+//               lastLoggedProgress = progress;
+//             }
+
+//             chunks.push(value);
+//             return pump();
+//           });
+//         };
+
+//         pump();
+//       })
+//       .catch((err) => console.log("Error downloading song", err))
+//   );
+// }
+
 function downloadFile(url, fileName) {
   console.log(`Downloading file:${fileName}`);
-  return new Promise((res) =>
-    fetch(url)
-      .then((response) => {
-        const totalSize = response.headers.get("Content-Length");
-        let downloadedSize = 0;
-        let lastLoggedProgress = 0;
-        const chunks = [];
+  return new Promise((resolve, _reject) => {
+    let lastLoggedProgress = 0;
+    axios({
+      url: url,
+      method: "GET",
+      responseType: "arraybuffer",
+      onDownloadProgress: (progressEvent) => {
+        const totalSize = progressEvent.total;
+        const downloadedSize = progressEvent.loaded;
+        const progress = Math.floor((downloadedSize / totalSize) * 100);
 
-        const reader = response.body.getReader();
+        if (!isNaN(progress) && progress - lastLoggedProgress > 30) {
+          lastLoggedProgress = progress;
+          console.log(`${progress}% done`);
+        }
+      },
+    })
+      .then((res) => {
+        console.log("🟢Download completed");
+        const blob = new Blob([res.data], { type: "audio/mp3" });
 
-        const pump = () => {
-          return reader.read().then(({ value, done }) => {
-            if (done) {
-              console.log("🟢Download completed");
-              const blob = new Blob(chunks);
-
-              res(blob);
-              return;
-            }
-
-            downloadedSize += value.length;
-            const progress = Math.floor((downloadedSize / totalSize) * 100);
-
-            if (progress - lastLoggedProgress >= 30) {
-              console.log(`${progress}% done`);
-              lastLoggedProgress = progress;
-            }
-
-            chunks.push(value);
-            return pump();
-          });
-        };
-
-        pump();
+        resolve(blob);
       })
-      .catch((err) => console.log("Error downloading song", err))
-  );
+      .catch((err) => {
+        console.log("Error downloading file", err?.message);
+        resolve(null);
+      });
+  });
 }
 
 export {

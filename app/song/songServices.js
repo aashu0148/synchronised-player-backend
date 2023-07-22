@@ -148,7 +148,7 @@ const uploadSongsToFirebaseAndDb = async (req, res) => {
     return createError(res, "title,artists,link required");
 
   for (let i = 0; i < tracks.length; ++i) {
-    console.log(`🔵File :${i + 1}/${tracks.length} `);
+    console.log(`🔵File: ${i + 1}/${tracks.length} `);
     const file = tracks[i];
     const filename = file.title + "_-_" + file.artists + ".mp3";
     const blob = await downloadFile(file.link, filename);
