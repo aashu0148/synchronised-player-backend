@@ -306,7 +306,6 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
     });
 
     socket.on("next", async (obj) => {
-      console.log("🟡next event", obj);
       if (!obj?.roomId || !obj?.userId) return;
 
       const { roomId, userId, currentSongId, autoPlay = false } = obj;
@@ -315,6 +314,7 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
       if (!roomCheck) return;
 
       const { room, user } = roomCheck;
+      console.log("🟡next event", room.name, user.name);
 
       const userRole = user.role || roomUserTypeEnum.member;
       const higherAuthorityExist = isAnyHigherAuthorityExistInRoom(room);
@@ -351,6 +351,7 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
         currentSong: nextSong?._id,
       });
 
+      console.log("emitting next : ", nextSong?.title);
       io.to(roomId).emit("next", {
         secondsPlayed: 0,
         lastPlayedAt: Date.now(),
