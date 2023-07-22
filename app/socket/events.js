@@ -333,13 +333,6 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
       const songIndex = room.playlist.findIndex(
         (item) => item._id == currentSongId
       );
-      console.log(
-        "🟡next event",
-        room.name,
-        user.name,
-        currentSongId,
-        songIndex
-      );
       if (room.playlist[songIndex]?.length < 0) {
         sendSocketError(socket, `Can not find current song in the playlist`);
         return;
@@ -357,7 +350,6 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
         currentSong: nextSong?._id,
       });
 
-      console.log("emitting next : ", nextSong?.title);
       io.to(roomId).emit("next", {
         secondsPlayed: 0,
         lastPlayedAt: Date.now(),
