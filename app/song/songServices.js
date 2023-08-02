@@ -27,6 +27,7 @@ const searchSong = async (req, res) => {
     .find({
       $or: [{ title: { $regex: regex } }, { artist: { $regex: regex } }],
     })
+    .sort({ timesPlayed: -1 })
     .limit(20);
 
   createResponse(res, songs);
