@@ -10,7 +10,7 @@ import {
 } from "../../util/util.js";
 
 const getAllSongs = async (req, res) => {
-  const songs = await songSchema.find({}).sort({ createdAt: -1 });
+  const songs = await songSchema.find({}).sort({ createdAt: -1 }).limit(50);
 
   createResponse(res, songs);
 };
@@ -23,9 +23,11 @@ const searchSong = async (req, res) => {
   }
 
   const regex = new RegExp(search, "ig");
-  const songs = await songSchema.find({
-    $or: [{ title: { $regex: regex } }, { artist: { $regex: regex } }],
-  });
+  const songs = await songSchema
+    .find({
+      $or: [{ title: { $regex: regex } }, { artist: { $regex: regex } }],
+    })
+    .limit(20);
 
   createResponse(res, songs);
 };
