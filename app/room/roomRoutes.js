@@ -11,6 +11,7 @@ import {
   promoteToController,
   getCurrentRoomOfUser,
   removeDuplicateSongsFromRoom,
+  createRoomWithRandomSongs,
 } from "./roomServices.js";
 import { authenticateUserMiddleware } from "../user/userMiddleware.js";
 
@@ -19,6 +20,11 @@ const router = express.Router();
 router.get("/room/current", authenticateUserMiddleware, getCurrentRoomOfUser);
 router.get("/room/all", authenticateUserMiddleware, getAllRooms);
 router.post("/room", authenticateUserMiddleware, createRoom);
+router.post(
+  "/room/random",
+  authenticateUserMiddleware,
+  createRoomWithRandomSongs
+);
 router.put("/room/:rid", authenticateUserMiddleware, updateRoomToDb);
 router.get("/room/remove-duplicates/:rid", removeDuplicateSongsFromRoom);
 router.delete("/room/:rid", authenticateUserMiddleware, deleteRoom);

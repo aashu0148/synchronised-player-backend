@@ -1,6 +1,12 @@
 import roomSchema from "./roomSchema.js";
 import userSchema from "../user/userSchema.js";
-import { createError, createResponse } from "../../util/util.js";
+import songSchema from "../song/songSchema.js";
+import {
+  createError,
+  createResponse,
+  getRandomInteger,
+  shuffleArray,
+} from "../../util/util.js";
 import { roomUserTypeEnum } from "../../util/constant.js";
 
 const getAllRooms = async (req, res) => {
@@ -23,6 +29,54 @@ const getAllRooms = async (req, res) => {
       users: socketRooms[item._id]?.users || [],
     }))
   );
+};
+
+const createRoomWithRandomSongs = async (req, res) => {
+  const userId = req.user?._id;
+  let { name, totalSongs } = req.body;
+  if (!totalSongs || totalSongs < 10) totalSongs = 20;
+
+  if (!name) {
+    createError(res, "Room name required");
+    return;
+  }
+  if (totalSongs > 200) {
+    createError(res, "totalSongs can not be greater than 200");
+    return;
+  }
+
+  const songs = await songSchema.find({}).sort({ timesPlayed: -1 }).lean();
+
+  const topSongs = [];
+  for (let i = 0; i < totalSongs / 2; ++i) topSongs[i] = songs[i];
+
+  const totalAvailableSongs = songs.length;
+  const randomSongs = [];
+  while (randomSongs.length < totalSongs) {
+    const randomIndex = getRandomInteger(0, totalAvailableSongs - 1);
+    const song = songs[randomIndex];
+    if (!randomSongs.some((item) => item?._id == song._id))
+      randomSongs.push(song);
+  }
+
+  const netSongs = shuffleArray(
+    [...topSongs, ...randomSongs]
+      .filter(
+        (item, index, self) => self.findIndex((s) => s._id == item._id) == index
+      )
+      .slice(0, totalSongs)
+  );
+
+  const newRoom = new roomSchema({
+    name,
+    owner: userId,
+    playlist: netSongs.map((item) => item._id),
+  });
+
+  newRoom
+    .save()
+    .then((room) => createResponse(res, room, 201))
+    .catch((err) => createError(res, "Error creating room", 500, err));
 };
 
 const createRoom = async (req, res) => {
@@ -375,4 +429,5 @@ export {
   demoteController,
   getCurrentRoomOfUser,
   removeDuplicateSongsFromRoom,
+  createRoomWithRandomSongs,
 };
