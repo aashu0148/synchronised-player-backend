@@ -47,8 +47,9 @@ const createRoomWithRandomSongs = async (req, res) => {
 
   const songs = await songSchema.find({}).sort({ timesPlayed: -1 }).lean();
 
+  const topSongsLength = totalSongs / 2 > 15 ? 15 : totalSongs / 2;
   const topSongs = [];
-  for (let i = 0; i < totalSongs / 2; ++i) topSongs[i] = songs[i];
+  for (let i = 0; i < topSongsLength; ++i) topSongs[i] = songs[i];
 
   const totalAvailableSongs = songs.length;
   const randomSongs = [];
