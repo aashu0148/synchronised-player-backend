@@ -22,12 +22,12 @@ import {
 //  -> copy files from one bucket to another : gsutil -m rsync -r gs://bucket-source/dir gs://bucket-destination/dir
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCkEnCenHgql3r2Y-h90upmkH5DZMjFgzQ",
-  authDomain: "sleeping-owl-storage-2.firebaseapp.com",
-  projectId: "sleeping-owl-storage-2",
-  storageBucket: "sleeping-owl-storage-2.appspot.com",
-  messagingSenderId: "938664352207",
-  appId: "1:938664352207:web:ecb581f930c7149381daba",
+  apiKey: "AIzaSyCD-dbFg3vshnLhLPI7Z0ZapbV9neso2Z4",
+  authDomain: "sleeping-owl-storage-3.firebaseapp.com",
+  projectId: "sleeping-owl-storage-3",
+  storageBucket: "sleeping-owl-storage-3.appspot.com",
+  messagingSenderId: "194218088509",
+  appId: "1:194218088509:web:f2efefd91e242a95b9f254",
 };
 
 const app = initializeApp(firebaseConfig);
