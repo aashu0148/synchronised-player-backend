@@ -20,6 +20,8 @@ import {
 //  -> now to check for cors : gsutil cors get gs://sleeping-owl-storage-1.appspot.com
 //  -> to set the above file for cors :  gsutil cors set cors.json gs://sleeping-owl-storage-1.appspot.com
 //  -> copy files from one bucket to another : gsutil -m rsync -r gs://bucket-source/dir gs://bucket-destination/dir
+//  -> to get size of a directory : gsutil du -s gs://sleeping-owl-storage-1.appspot.com/songs | awk '{print $1/1048576 " MB"}'
+//  -> to get length of a directory : gsutil ls gs://sleeping-owl-storage-1.appspot.com/songs | wc -l
 
 const firebaseConfig = {
   apiKey: "AIzaSyCD-dbFg3vshnLhLPI7Z0ZapbV9neso2Z4",

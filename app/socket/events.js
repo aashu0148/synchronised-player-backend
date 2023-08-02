@@ -1,4 +1,5 @@
 import roomSchema from "../room/roomSchema.js";
+import songSchema from "../song/songSchema.js";
 import { roomUserTypeEnum } from "../../util/constant.js";
 import { formatSecondsToMinutesSeconds } from "../../util/util.js";
 
@@ -13,6 +14,16 @@ const updateRoomPlaylist = async (roomId, songIds) => {
   } catch (err) {
     console.log("Error updating playlist via sockets", err);
   }
+};
+
+const incrementPlayedTimesForSong = async (sid) => {
+  const song = await songSchema.findOne({ _id: sid });
+  if (!song) return;
+
+  const playedTimes = parseInt(song.timesPlayed) || 0;
+
+  song.timesPlayed = playedTimes + 1;
+  await song.save();
 };
 
 const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
@@ -343,6 +354,7 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
       const nextSong = room.playlist[nextSongIndex];
       if (room.currentSong == nextSong?._id) return;
 
+      incrementPlayedTimesForSong(nextSong?._id);
       updateRoom(roomId, {
         secondsPlayed: 0,
         lastPlayedAt: Date.now(),
@@ -455,6 +467,7 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
 
       const song = room.playlist[songIndex];
 
+      incrementPlayedTimesForSong(song?._id);
       updateRoom(roomId, {
         secondsPlayed: 0,
         lastPlayedAt: Date.now(),

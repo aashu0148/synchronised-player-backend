@@ -9,8 +9,13 @@ const schema = new mongoose.Schema(
     fileType: {
       type: String,
     },
+    timesPlayed: {
+      type: Number,
+      default: 0,
+    },
     length: {
       type: Number,
+      required: true,
     },
     url: {
       type: String,
