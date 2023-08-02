@@ -414,6 +414,7 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
         songIndex == 0 ? room.playlist.length - 1 : songIndex - 1;
       const prevSong = room.playlist[prevSongIndex];
 
+      incrementPlayedTimesForSong(prevSong?._id);
       updateRoom(roomId, {
         secondsPlayed: 0,
         lastPlayedAt: Date.now(),

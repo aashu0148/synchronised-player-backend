@@ -25,9 +25,9 @@ import {
 
 const firebaseConfig = {
   apiKey: "AIzaSyCD-dbFg3vshnLhLPI7Z0ZapbV9neso2Z4",
-  authDomain: "sleeping-owl-storage-3.firebaseapp.com",
-  projectId: "sleeping-owl-storage-3",
-  storageBucket: "sleeping-owl-storage-3.appspot.com",
+  authDomain: "sleeping-owl-storage-4.firebaseapp.com",
+  projectId: "sleeping-owl-storage-4",
+  storageBucket: "sleeping-owl-storage-4.appspot.com",
   messagingSenderId: "194218088509",
   appId: "1:194218088509:web:f2efefd91e242a95b9f254",
 };
