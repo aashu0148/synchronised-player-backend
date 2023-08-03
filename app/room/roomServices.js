@@ -419,6 +419,52 @@ const getCurrentRoomOfUser = (req, res) => {
   createResponse(res, { message: "Room found", roomId: roomKey });
 };
 
+const getUserRooms = async (req, res) => {
+  const userId = req.user._id;
+
+  const rooms = await roomSchema.find({ owner: userId });
+
+  createResponse(res, rooms);
+};
+
+const addSongToRoom = async (req, res) => {
+  const { sid, rid } = req.params;
+  const userId = req.user?._id;
+
+  const room = await roomSchema.findOne({ _id: rid });
+  if (!room) return createError(res, "room not found", 404);
+
+  const song = await songSchema.findOne({ _id: sid }).lean();
+  if (!song) return createError(res, "Song not found", 404);
+
+  if (room.owner !== userId)
+    return createError(res, "Only owner can add new song to the room");
+
+  const playlist = room.playlist.includes(song._id)
+    ? room.playlist
+    : [...room.playlist, song._id];
+
+  room.playlist = playlist;
+
+  const socketRooms = req.rooms;
+  if (socketRooms && socketRooms[rid] && req.updateRoom)
+    req.updateRoom(rid, {
+      playlist,
+    });
+
+  room
+    .save()
+    .then(() => createResponse(res, { message: `Song added in: ${room.name}` }))
+    .catch((err) =>
+      createError(
+        res,
+        { message: err?.message || "Something went wrong" },
+        500,
+        err
+      )
+    );
+};
+
 export {
   createRoom,
   deleteRoom,
@@ -431,4 +477,6 @@ export {
   getCurrentRoomOfUser,
   removeDuplicateSongsFromRoom,
   createRoomWithRandomSongs,
+  addSongToRoom,
+  getUserRooms,
 };

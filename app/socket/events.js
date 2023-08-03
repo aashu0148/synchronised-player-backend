@@ -143,7 +143,15 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
       } else {
         room = await roomSchema
           .findOne({ _id: roomId })
-          .populate("playlist")
+          .populate({
+            path: "playlist",
+            options: {
+              transform: (doc) =>
+                typeof doc !== "object"
+                  ? null
+                  : { ...doc, _id: doc._id.toString() },
+            },
+          })
           .populate({
             path: "owner",
             select: "-token -createdAt",
@@ -536,9 +544,15 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
         return;
       }
 
-      const newPlaylist = songIds
-        .map((id) => room.playlist.find((item) => item._id == id))
-        .filter((item) => item);
+      const newPlaylist = [
+        ...songIds.map((id) => room.playlist.find((item) => item?._id == id)),
+        ...room.playlist,
+      ]
+        .filter((item) => item?._id)
+        .filter(
+          (item, index, self) =>
+            self.findIndex((s) => s?._id == item?._id) == index
+        );
 
       updateRoom(roomId, {
         playlist: newPlaylist,
@@ -555,6 +569,56 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
         roomId,
         `Playlist updated`,
         `${user.name} updated the playlist`
+      );
+    });
+
+    socket.on("delete-song", async (obj) => {
+      if (!obj?.roomId || !obj?.userId) return;
+
+      const { roomId, userId, songId } = obj;
+
+      const roomCheck = checkForUserInRoom(socket, roomId, userId);
+      if (!roomCheck) return;
+
+      const { room, user } = roomCheck;
+
+      const userRole = user.role || roomUserTypeEnum.member;
+      if (
+        [roomUserTypeEnum.member, roomUserTypeEnum.controller].includes(
+          userRole
+        )
+      ) {
+        return sendSocketError(
+          socket,
+          `${userRole} can not delete the song. You need admin access for this action`
+        );
+      }
+
+      if (!songId) {
+        sendSocketError(socket, "songId not found");
+        return;
+      }
+
+      const song = room.playlist.find((item) => item?._id == songId);
+      const newPlaylist = room.playlist.filter(
+        (item) => item?._id && item?._id !== songId
+      );
+
+      updateRoom(roomId, {
+        playlist: newPlaylist,
+      });
+      updateRoomPlaylist(
+        roomId,
+        newPlaylist.map((item) => item._id)
+      );
+
+      io.to(roomId).emit("update-playlist", {
+        playlist: newPlaylist,
+      });
+      sendNotificationInRoom(
+        roomId,
+        `Song removed`,
+        `${user.name} removed song: ${song?.title}`
       );
     });
 

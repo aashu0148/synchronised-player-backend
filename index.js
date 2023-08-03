@@ -27,7 +27,7 @@ app.use(express.urlencoded({ extended: true }));
 
 const rooms = {
   dummyRoomId: {
-    name: "room name",
+    name: "dummy room",
     owner: "userID",
     playlist: ["songId1", "songId2"],
     users: [
