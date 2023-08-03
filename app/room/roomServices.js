@@ -431,7 +431,16 @@ const addSongToRoom = async (req, res) => {
   const { sid, rid } = req.params;
   const userId = req.user?._id;
 
-  const room = await roomSchema.findOne({ _id: rid });
+  const room = await roomSchema
+    .findOne({ _id: rid })
+    .populate({
+      path: "playlist",
+      options: {
+        transform: (doc) =>
+          typeof doc !== "object" ? null : { ...doc, _id: doc._id.toString() },
+      },
+    })
+    .lean();
   if (!room) return createError(res, "room not found", 404);
 
   const song = await songSchema.findOne({ _id: sid }).lean();
@@ -440,11 +449,11 @@ const addSongToRoom = async (req, res) => {
   if (room.owner !== userId)
     return createError(res, "Only owner can add new song to the room");
 
-  const playlist = room.playlist.includes(song._id)
+  const playlist = room.playlist.some((item) => item?._id == song?._id)
     ? room.playlist
-    : [...room.playlist, song._id];
+    : [...room.playlist, song];
 
-  room.playlist = playlist;
+  room.playlist = playlist.map((item) => item._id);
 
   const socketRooms = req.rooms;
   if (socketRooms && socketRooms[rid] && req.updateRoom)
