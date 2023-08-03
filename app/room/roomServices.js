@@ -453,17 +453,22 @@ const addSongToRoom = async (req, res) => {
     ? room.playlist
     : [...room.playlist, song];
 
-  room.playlist = playlist.map((item) => item._id);
-
   const socketRooms = req.rooms;
-  if (socketRooms && socketRooms[rid] && req.updateRoom)
-    req.updateRoom(rid, {
-      playlist,
-    });
 
-  room
-    .save()
-    .then(() => createResponse(res, { message: `Song added in: ${room.name}` }))
+  roomSchema
+    .updateOne(
+      { _id: rid },
+      { $set: { playlist: playlist.map((item) => item._id) } }
+    )
+    .exec()
+    .then((room) => {
+      if (socketRooms && socketRooms[rid] && req.updateRoom)
+        req.updateRoom(rid, {
+          playlist,
+        });
+
+      createResponse(res, { message: `Song added in: ${room.name}` });
+    })
     .catch((err) =>
       createError(
         res,
