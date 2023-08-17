@@ -24,12 +24,12 @@ import {
 //  -> to get length of a directory : gsutil ls gs://sleeping-owl-storage-1.appspot.com/songs | wc -l
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCD-dbFg3vshnLhLPI7Z0ZapbV9neso2Z4",
-  authDomain: "sleeping-owl-storage-4.firebaseapp.com",
-  projectId: "sleeping-owl-storage-4",
-  storageBucket: "sleeping-owl-storage-4.appspot.com",
-  messagingSenderId: "194218088509",
-  appId: "1:194218088509:web:f2efefd91e242a95b9f254",
+  apiKey: "AIzaSyAaqYGES4Fd9dx2PlS-GFN14t6sPsu85qA",
+  authDomain: "sleeping-owl-storage-5.firebaseapp.com",
+  projectId: "sleeping-owl-storage-5",
+  storageBucket: "sleeping-owl-storage-5.appspot.com",
+  messagingSenderId: "491922593758",
+  appId: "1:491922593758:web:a986d9e398350edd04af4f",
 };
 
 const app = initializeApp(firebaseConfig);
