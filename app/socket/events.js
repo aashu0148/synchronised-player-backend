@@ -149,7 +149,12 @@ const SocketEvents = (io, rooms, updateRoom, deleteRoom) => {
               transform: (doc) =>
                 typeof doc !== "object"
                   ? null
-                  : { ...doc, _id: doc._id.toString() },
+                  : {
+                      ...doc,
+                      _id: doc?._id?.toString
+                        ? doc._id.toString()
+                        : doc?._id || "dummy_id",
+                    },
             },
           })
           .populate({

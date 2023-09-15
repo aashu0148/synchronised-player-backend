@@ -4,7 +4,7 @@ const schema = new mongoose.Schema(
   {
     name: {
       type: String,
-      require: true,
+      required: true,
     },
     owner: {
       type: String,
@@ -29,6 +29,6 @@ const schema = new mongoose.Schema(
   }
 );
 
-const userSchema = mongoose.model("Room", schema);
+const roomSchema = mongoose.model("Room", schema);
 
-export default userSchema;
+export default roomSchema;

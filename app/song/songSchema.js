@@ -4,7 +4,7 @@ const schema = new mongoose.Schema(
   {
     title: {
       type: String,
-      require: true,
+      required: true,
     },
     fileType: {
       type: String,
@@ -19,14 +19,14 @@ const schema = new mongoose.Schema(
     },
     url: {
       type: String,
-      require: true,
+      required: true,
     },
     hash: {
       type: String,
     },
     artist: {
       type: String,
-      require: true,
+      required: true,
     },
   },
   {
