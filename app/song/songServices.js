@@ -195,6 +195,7 @@ const uploadSongsToFirebaseAndDb = async (req, res) => {
       url,
       hash: blobHash,
       artist: file.artists,
+      cover: file.cover,
       fileType: "audio/mp3",
       length: parseInt(duration),
     };

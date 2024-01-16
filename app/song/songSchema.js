@@ -24,6 +24,9 @@ const schema = new mongoose.Schema(
     hash: {
       type: String,
     },
+    cover: {
+      type: String,
+    },
     artist: {
       type: String,
       required: true,
