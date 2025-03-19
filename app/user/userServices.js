@@ -1,8 +1,11 @@
 import { OAuth2Client } from "google-auth-library";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 import userSchema from "./userSchema.js";
 import { createError, createResponse, validateEmail } from "../../util/util.js";
+
+const JWT_SECRET = process.env.JWT_SECRET || "sleeping-owl";
 
 const verifyGoogleToken = async ({ token }) => {
   const clientId = process.env.CLIENT_ID;
@@ -86,4 +89,93 @@ const getCurrentUser = (req, res) => {
   createResponse(res, req.user, 200);
 };
 
-export { handleGoogleLogin, getCurrentUser, getAdminAccess };
+const createUser = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    // Validate input
+    if (!name || !email || !password) {
+      return createError(res, "All fields are required", 400);
+    }
+
+    if (!validateEmail(email)) {
+      return createError(res, "Invalid email format", 400);
+    }
+
+    // Check if user already exists
+    const existingUser = await userSchema.findOne({ email });
+    if (existingUser) {
+      return createError(res, "Email already registered", 400);
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create token
+    const token = jwt.sign({ email: email }, JWT_SECRET);
+
+    // Create new user
+    const user = new userSchema({
+      name,
+      email,
+      password: hashedPassword,
+      token,
+    });
+
+    await user.save();
+
+    // Remove password from response
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
+    return createResponse(res, userResponse, 201);
+  } catch (error) {
+    return createError(res, error.message || "Error creating user", 500);
+  }
+};
+
+const loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validate input
+    if (!email || !password) {
+      return createError(res, "Email and password are required", 400);
+    }
+
+    // Find user
+    const user = await userSchema.findOne({ email });
+    if (!user) {
+      return createError(res, "Invalid credentials", 401);
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return createError(res, "Invalid credentials", 401);
+    }
+
+    // Generate new token
+    const token = jwt.sign({ email: user.email }, JWT_SECRET);
+
+    // Update user's token
+    user.token = token;
+    await user.save();
+
+    // Remove password from response
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
+    return createResponse(res, userResponse, 200);
+  } catch (error) {
+    return createError(res, error.message || "Error during login", 500);
+  }
+};
+
+export {
+  handleGoogleLogin,
+  getCurrentUser,
+  getAdminAccess,
+  createUser,
+  loginUser,
+};
